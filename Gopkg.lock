@@ -2,6 +2,16 @@
 
 
 [[projects]]
+  name = "github.com/google/gopacket"
+  packages = [
+    ".",
+    "layers",
+    "pcap"
+  ]
+  revision = "11c65f1ca9081dfea43b4f9643f5c155583b73ba"
+  version = "v1.1.14"
+
+[[projects]]
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
   revision = "96dc06278ce32a0e9d957d590bb987c81ee66407"
@@ -10,6 +20,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3e72692ce4a2d12b5ce3ac2f83ad89be6eb9ce02f7a592fd4ffa61b7cdd3ead0"
+  inputs-digest = "14fdbbf794952df795edec81ccf888907565eac9531ac5afc124362c7d481f25"
   solver-name = "gps-cdcl"
   solver-version = 1
