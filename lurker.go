@@ -1,15 +1,98 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"log"
 	"time"
+	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"github.com/jessevdk/go-flags"
 )
+
+type Lurker struct {
+	sourceName string
+
+	pcapHandle *pcap.Handle
+	
+	// handlers
+	arpReply *ArpSpoofer
+	tcpAck   *TcpSpoofer
+	tcpData  *TcpDataLogger
+	tcpConn  *TcpConnLogger
+}
+
+func (x *Lurker) AddPcapFile(fileName string) error {
+	if x.pcapHandle != nil {
+		return errors.New("Already set pcap handler, do not specify multiple capture soruce")
+	}
+	
+	log.Println("read from ", fileName)
+	handle, pcapErr := pcap.OpenOffline(fileName)
+
+	if pcapErr != nil {
+		return pcapErr
+	}
+	
+	x.pcapHandle = handle
+	return nil
+}
+
+func (x *Lurker) AddPcapDev(devName string) error {
+	if x.pcapHandle != nil {
+		return errors.New("Already set pcap handler, do not specify multiple capture soruce")
+	}
+	
+	log.Println("capture from ", devName)
+
+	var (
+		snapshotLen int32  = 0xffff
+		promiscuous bool   = true
+		timeout     time.Duration = -1 * time.Second
+	)
+
+	handle, pcapErr := pcap.OpenLive(devName, snapshotLen, promiscuous, timeout)
+
+	if pcapErr != nil {
+		return pcapErr
+	}
+	
+	x.pcapHandle = handle
+	return nil
+}
+
+func (x *Lurker) Loop() error {
+	if x.pcapHandle == nil {
+		return errors.New("No available device or pcap file")
+	}
+	
+	packetSource := gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
+	for packet := range packetSource.Packets() {
+		if x.arpReply != nil {
+			x.arpReply.Handle(&packet)
+		}
+
+		if x.tcpAck != nil {
+			x.tcpAck.Handle(&packet)
+		}
+
+		if x.tcpConn != nil {
+			x.tcpConn.Handle(&packet)
+		}	
+		
+		if x.tcpData != nil {
+			x.tcpData.Handle(&packet)
+		}
+	}
+
+	return nil
+}
+
+func (x *Lurker) Close() {
+	if x.pcapHandle != nil {
+		x.pcapHandle.Close()
+	}
+}
 
 
 type ArpSpoofer struct {
@@ -136,37 +219,3 @@ func SetupPcapHandler(opts Options) (*pcap.Handle, error) {
 }
 
 
-func main() {
-	var opts Options
-	
-	_, ParseErr := flags.ParseArgs(&opts, os.Args)
-	if ParseErr != nil {
-		os.Exit(1)
-	}
-
-	
-	handler := PacketHandler{}
-	
-	pcapHandle, pcapErr := SetupPcapHandler(opts)
-	if pcapErr != nil {
-		log.Fatal(pcapErr)
-		os.Exit(1)
-	}
-	
-	if pcapHandle == nil {
-		log.Fatal("No available device and pcap file, -i or -r option is mandatory")
-		os.Exit(1)
-	}
-
-	defer pcapHandle.Close()
-
-
-	handler.ArpReply = &ArpSpoofer{}
-	
-	// Loop through packets in file
-	packetSource := gopacket.NewPacketSource(pcapHandle, pcapHandle.LinkType())
-	for packet := range packetSource.Packets() {
-		handler.Read(&packet)
-		// HandlePacket(packet)
-	}
-}
