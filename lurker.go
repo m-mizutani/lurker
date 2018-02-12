@@ -22,7 +22,7 @@ type Lurker struct {
 	tcpConn  *TcpConnLogger
 }
 
-func (x *Lurker) AddPcapFile(fileName string) error {
+func (x *Lurker) SetPcapFile(fileName string) error {
 	if x.pcapHandle != nil {
 		return errors.New("Already set pcap handler, do not specify multiple capture soruce")
 	}
@@ -38,7 +38,7 @@ func (x *Lurker) AddPcapFile(fileName string) error {
 	return nil
 }
 
-func (x *Lurker) AddPcapDev(devName string) error {
+func (x *Lurker) SetPcapDev(devName string) error {
 	if x.pcapHandle != nil {
 		return errors.New("Already set pcap handler, do not specify multiple capture soruce")
 	}
@@ -60,6 +60,15 @@ func (x *Lurker) AddPcapDev(devName string) error {
 	x.pcapHandle = handle
 	return nil
 }
+
+func (x *Lurker) AddFluentdEmitter(addr string) error {
+	return nil
+}
+
+func (x *Lurker) AddQueueEmitter() error {
+	return nil
+}
+
 
 func (x *Lurker) Loop() error {
 	if x.pcapHandle == nil {
@@ -93,6 +102,7 @@ func (x *Lurker) Close() {
 		x.pcapHandle.Close()
 	}
 }
+
 
 
 type ArpSpoofer struct {
@@ -153,69 +163,3 @@ func (h *TcpConnLogger) Handle (packet *gopacket.Packet) {
 		}
 	}
 }
-
-
-type PacketHandler struct {
-	DevName string
-
-	// handlers
-	ArpReply *ArpSpoofer
-	TcpAck   *TcpSpoofer
-	TcpData  *TcpDataLogger
-	TcpConn  *TcpConnLogger
-}
-
-func (hdlr *PacketHandler) Read (packet *gopacket.Packet) {
-	// fmt.Println(packet)
-
-	if hdlr.ArpReply != nil {
-		hdlr.ArpReply.Handle(packet)
-	}
-
-	if hdlr.TcpAck != nil {
-		hdlr.TcpAck.Handle(packet)
-	}
-
-	if hdlr.TcpConn != nil {
-		hdlr.TcpConn.Handle(packet)
-	}	
-	
-	if hdlr.TcpData != nil {
-		hdlr.TcpData.Handle(packet)
-	}
-}
-
-
-type Options struct {
-	FileName string `short:"r" description:"A pcap file" value-name:"FILE"`
-	DevName string `short:"i" description:"Interface name" value-name:"DEV"`
-	FluentDst string `short:"f" description:"Destination of fluentd logs" value-name:"HOST:PORT"`
-}
-
-func SetupPcapHandler(opts Options) (*pcap.Handle, error) {
-	var handle *pcap.Handle
-	var pcapErr error
-	
-	if opts.FileName != "" {
-		log.Println("read from ", opts.FileName)
-		fmt.Println(opts.FileName)
-		
-		handle, pcapErr = pcap.OpenOffline(opts.FileName)
-	}
-	
-	if opts.DevName != "" {
-		log.Println("capture from ", opts.DevName)
-
-		var (
-			snapshotLen int32  = 0xffff
-			promiscuous bool   = true
-			timeout     time.Duration = -1 * time.Second
-		)
-
-		handle, pcapErr = pcap.OpenLive(opts.DevName, snapshotLen, promiscuous, timeout)
-	}
-
-	return handle, pcapErr
-}
-
-
