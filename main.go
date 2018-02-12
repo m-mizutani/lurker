@@ -1,21 +1,21 @@
 package main
 
 import (
-	"os"
-	"log"
 	"github.com/jessevdk/go-flags"
 	lurker "github.com/m-mizutani/lurker/lib"
+	"log"
+	"os"
 )
 
 type Options struct {
-	FileName string `short:"r" description:"A pcap file" value-name:"FILE"`
-	DevName string `short:"i" description:"Interface name" value-name:"DEV"`
+	FileName  string `short:"r" description:"A pcap file" value-name:"FILE"`
+	DevName   string `short:"i" description:"Interface name" value-name:"DEV"`
 	FluentDst string `short:"f" description:"Destination of fluentd logs" value-name:"HOST:PORT"`
 }
 
 func main() {
 	var opts Options
-	
+
 	_, ParseErr := flags.ParseArgs(&opts, os.Args)
 	if ParseErr != nil {
 		os.Exit(1)
@@ -23,7 +23,7 @@ func main() {
 
 	lkr := lurker.Lurker{}
 	defer lkr.Close()
-	
+
 	if opts.DevName != "" {
 		err := lkr.SetPcapDev(opts.DevName)
 		if err != nil {
@@ -31,7 +31,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	
+
 	if opts.FileName != "" {
 		err := lkr.SetPcapFile(opts.FileName)
 		if err != nil {
@@ -47,7 +47,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	
+
 	loopErr := lkr.Loop()
 	if loopErr != nil {
 		log.Fatal(loopErr)
