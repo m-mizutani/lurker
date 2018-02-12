@@ -18,6 +18,14 @@ type Lurker struct {
 	emitters []Emitter
 }
 
+//
+// Constructor
+//
+func New() Lurker {
+	lurker := Lurker{}
+	return lurker
+}
+
 func (x *Lurker) SetPcapFile(fileName string) error {
 	if x.pcapHandle != nil {
 		return errors.New("Already set pcap handler, do not specify multiple capture soruce")
