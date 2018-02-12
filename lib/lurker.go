@@ -15,6 +15,7 @@ type Lurker struct {
 	
 	// handlers
 	handlers []Handler
+	emitters []Emitter
 }
 
 func (x *Lurker) SetPcapFile(fileName string) error {
@@ -56,14 +57,28 @@ func (x *Lurker) SetPcapDev(devName string) error {
 	return nil
 }
 
+
+//
+// Manage Emitter
+//
+
 func (x *Lurker) AddFluentdEmitter(addr string) error {
+	emitter, err := NewEmiter("fluentd")
+	if err != nil {
+		return err
+	}
+	
+	x.AddEmitter(emitter)
 	return nil
 }
 
-func (x *Lurker) AddQueueEmitter() error {
-	return nil
+func (x *Lurker) AddEmitter(emitter Emitter) {
+	x.emitters = append(x.emitters, emitter)
 }
 
+//
+// Manage Handler
+//
 
 func (x *Lurker) AddArpSpoofer() {
 	x.handlers = append(x.handlers, NewHandler("arp_spoofer"))
