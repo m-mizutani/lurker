@@ -4,6 +4,7 @@ import (
 	"os"
 	"log"
 	"github.com/jessevdk/go-flags"
+	lurker "github.com/m-mizutani/lurker/lib"
 )
 
 type Options struct {
@@ -20,11 +21,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	lurker := Lurker{}
-	defer lurker.Close()
+	lkr := lurker.Lurker{}
+	defer lkr.Close()
 	
 	if opts.DevName != "" {
-		err := lurker.SetPcapDev(opts.DevName)
+		err := lkr.SetPcapDev(opts.DevName)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
@@ -32,7 +33,7 @@ func main() {
 	}
 	
 	if opts.FileName != "" {
-		err := lurker.SetPcapFile(opts.FileName)
+		err := lkr.SetPcapFile(opts.FileName)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
@@ -40,16 +41,16 @@ func main() {
 	}
 
 	if opts.FluentDst != "" {
-		err := lurker.AddFluentdEmitter(opts.FluentDst)
+		err := lkr.AddFluentdEmitter(opts.FluentDst)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
 		}
 	}
 	
-	loopErr := lurker.Loop()
+	loopErr := lkr.Loop()
 	if loopErr != nil {
-		log.Fatal("No available device and pcap file, -i or -r option is mandatory")
+		log.Fatal(loopErr)
 		os.Exit(1)
 	}
 }

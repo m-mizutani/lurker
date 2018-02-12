@@ -1,4 +1,4 @@
-package main
+package lurker
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	// "github.com/m-mizutani/lurker/lurker"
 )
 
 type Lurker struct {
@@ -72,7 +73,7 @@ func (x *Lurker) AddQueueEmitter() error {
 
 func (x *Lurker) Loop() error {
 	if x.pcapHandle == nil {
-		return errors.New("No available device or pcap file")
+		return errors.New("No available device or pcap file, need to specify one of them")
 	}
 	
 	packetSource := gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
