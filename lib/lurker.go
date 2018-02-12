@@ -1,14 +1,11 @@
 package lurker
 
 import (
-	"fmt"
 	"log"
 	"time"
 	"errors"
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	// "github.com/m-mizutani/lurker/lurker"
 )
 
 type Lurker struct {
@@ -17,10 +14,7 @@ type Lurker struct {
 	pcapHandle *pcap.Handle
 	
 	// handlers
-	arpReply *ArpSpoofer
-	tcpAck   *TcpSpoofer
-	tcpData  *TcpDataLogger
-	tcpConn  *TcpConnLogger
+	handlers []Handler
 }
 
 func (x *Lurker) SetPcapFile(fileName string) error {
@@ -71,6 +65,24 @@ func (x *Lurker) AddQueueEmitter() error {
 }
 
 
+func (x *Lurker) AddArpSpoofer() {
+	x.handlers = append(x.handlers, NewHandler("arp_spoofer"))
+}
+
+func (x *Lurker) AddTcpSpoofer() {
+	x.handlers = append(x.handlers, NewHandler("tcp_spoofer"))
+}
+
+func (x *Lurker) AddDataLogger() {
+	x.handlers = append(x.handlers, NewHandler("data_logger"))
+}
+
+func (x *Lurker) AddConnLogger() {
+	x.handlers = append(x.handlers, NewHandler("conn_logger"))
+}
+
+
+
 func (x *Lurker) Loop() error {
 	if x.pcapHandle == nil {
 		return errors.New("No available device or pcap file, need to specify one of them")
@@ -78,20 +90,8 @@ func (x *Lurker) Loop() error {
 	
 	packetSource := gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
 	for packet := range packetSource.Packets() {
-		if x.arpReply != nil {
-			x.arpReply.Handle(&packet)
-		}
-
-		if x.tcpAck != nil {
-			x.tcpAck.Handle(&packet)
-		}
-
-		if x.tcpConn != nil {
-			x.tcpConn.Handle(&packet)
-		}	
-		
-		if x.tcpData != nil {
-			x.tcpData.Handle(&packet)
+		for _, handler := range x.handlers {
+			handler.Handle(&packet)
 		}
 	}
 
@@ -106,61 +106,3 @@ func (x *Lurker) Close() {
 
 
 
-type ArpSpoofer struct {
-}
-
-func (h *ArpSpoofer) Handle (packet *gopacket.Packet) {
-	arpLayer := (*packet).Layer(layers.LayerTypeARP)
-	if arpLayer != nil {
-		arpPkt, _ := arpLayer.(*layers.ARP)
-
-		if arpPkt.Operation == 1 {
-			fmt.Println("TODO: do action for arp reply")
-		}
-	}
-}
-
-
-type TcpSpoofer struct {
-}
-
-func (h *TcpSpoofer) Handle (packet *gopacket.Packet) {
-	tcpLayer := (*packet).Layer(layers.LayerTypeTCP)
-	if tcpLayer != nil {
-		tcpPkt, _ := tcpLayer.(*layers.TCP)
-
-		if (tcpPkt.FIN == false && tcpPkt.SYN == true &&
-			tcpPkt.RST == false && tcpPkt.ACK == false) {
-			fmt.Println("TODO: do action for TCP syn packet")
-		}
-	}
-}
-
-
-type TcpDataLogger struct {
-}
-
-func (h *TcpDataLogger) Handle (packet *gopacket.Packet) {
-	tcpLayer := (*packet).Layer(layers.LayerTypeTCP)
-	appLayer := (*packet).ApplicationLayer()
-	if tcpLayer != nil && appLayer != nil {
-		data := appLayer.Payload()
-		fmt.Println(data)
-	}	
-}
-
-
-type TcpConnLogger struct {
-}
-
-func (h *TcpConnLogger) Handle (packet *gopacket.Packet) {
-	tcpLayer := (*packet).Layer(layers.LayerTypeTCP)
-	if tcpLayer != nil {
-		tcpPkt, _ := tcpLayer.(*layers.TCP)
-
-		if (tcpPkt.FIN == false && tcpPkt.SYN == true &&
-			tcpPkt.RST == false && tcpPkt.ACK == false) {
-			fmt.Println("TODO: do action for TCP syn packet")
-		}
-	}
-}
