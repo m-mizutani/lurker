@@ -45,3 +45,10 @@ Use case 4) Dry run with pcap file `test_data.pcap`
 ```shell
 $ ./lurker -r test_data.pcap
 ```
+
+License
+---------------
+
+- Source code: [BSD 2-Clause license](./LICENSE)
+- [Image](https://user-images.githubusercontent.com/605953/36069674-c55edbee-0f31-11e8-902e-c0793a80668b.png): CC-BY-SA from Carbot Animation http://carbotanimations.wikia.com/wiki/Lurker
+
