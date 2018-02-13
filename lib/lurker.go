@@ -11,11 +11,12 @@ import (
 type Lurker struct {
 	sourceName string
 
-	pcapHandle *pcap.Handle
+	pcapHandle   *pcap.Handle
+	packetSource *gopacket.PacketSource
 
 	// handlers
 	handlers []Handler
-	emitters []Emitter
+	gateway  EmitterGateway
 }
 
 //
@@ -80,7 +81,7 @@ func (x *Lurker) AddFluentdEmitter(addr string) error {
 }
 
 func (x *Lurker) AddEmitter(emitter Emitter) {
-	x.emitters = append(x.emitters, emitter)
+	x.gateway.Add(emitter)
 }
 
 //
@@ -103,19 +104,61 @@ func (x *Lurker) AddConnLogger() {
 	x.handlers = append(x.handlers, NewHandler("conn_logger"))
 }
 
-func (x *Lurker) Loop() error {
+func (x *Lurker) Preprocess() error {
 	if x.pcapHandle == nil {
 		return errors.New("No available device or pcap file, need to specify one of them")
 	}
 
-	packetSource := gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
-	for packet := range packetSource.Packets() {
+	if x.packetSource == nil {
+		x.packetSource = gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
+
+		for _, handler := range x.handlers {
+			handler.SetEmitterGateway(&x.gateway)
+		}
+	}
+
+	return nil
+}
+
+func (x *Lurker) Loop() error {
+	err := x.Preprocess()
+	if err != nil {
+		return err
+	}
+
+	for packet := range x.packetSource.Packets() {
 		for _, handler := range x.handlers {
 			handler.Handle(&packet)
 		}
 	}
 
 	return nil
+}
+
+func (x *Lurker) Read(readSize int) error {
+	err := x.Preprocess()
+	if err != nil {
+		return err
+	}
+
+	count := 0
+
+	for {
+		packet, pktErr := x.packetSource.NextPacket()
+		if packet == nil {
+			return pktErr
+		}
+
+		for _, handler := range x.handlers {
+			handler.Handle(&packet)
+		}
+
+		count += 1
+
+		if count >= readSize {
+			return nil
+		}
+	}
 }
 
 func (x *Lurker) Close() {
