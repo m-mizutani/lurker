@@ -35,8 +35,6 @@ func NewHandler(handlerType string) Handler {
 		return &TcpSpoofer{}
 	case "data_logger":
 		return &TcpDataLogger{}
-	case "conn_logger":
-		return &TcpConnLogger{}
 	default:
 		return nil
 	}
@@ -62,7 +60,7 @@ func (h *ArpSpoofer) Handle(packet *gopacket.Packet) {
 			if len(sp) == 4 {
 				log["src_pr"] = net.IPv4(sp[0], sp[1], sp[2], sp[3]).String()
 			}
-			h.emit("log.arp_spoof", log)
+			h.emit("log.arp_request", log)
 			// fmt.Println("TODO: do action for arp reply")
 		}
 	}
@@ -79,7 +77,14 @@ func (h *TcpSpoofer) Handle(packet *gopacket.Packet) {
 
 		if tcpPkt.FIN == false && tcpPkt.SYN == true &&
 			tcpPkt.RST == false && tcpPkt.ACK == false {
-			fmt.Println("TODO: do action for TCP syn packet")
+
+			ipv4Layer := (*packet).Layer(layers.LayerTypeIPv4)
+			ipv4Pkt, _ := ipv4Layer.(*layers.IPv4)
+
+			log := make(map[string]interface{})
+			log["src_addr"] = ipv4Pkt.SrcIP.String()
+			log["dst_addr"] = ipv4Pkt.DstIP.String()
+			h.emit("log.tcp_syn", log)
 		}
 	}
 }
@@ -94,21 +99,5 @@ func (h *TcpDataLogger) Handle(packet *gopacket.Packet) {
 	if tcpLayer != nil && appLayer != nil {
 		data := appLayer.Payload()
 		fmt.Println(data)
-	}
-}
-
-type TcpConnLogger struct {
-	HandlerBase
-}
-
-func (h *TcpConnLogger) Handle(packet *gopacket.Packet) {
-	tcpLayer := (*packet).Layer(layers.LayerTypeTCP)
-	if tcpLayer != nil {
-		tcpPkt, _ := tcpLayer.(*layers.TCP)
-
-		if tcpPkt.FIN == false && tcpPkt.SYN == true &&
-			tcpPkt.RST == false && tcpPkt.ACK == false {
-			fmt.Println("TODO: do action for TCP syn packet")
-		}
 	}
 }
