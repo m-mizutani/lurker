@@ -2,7 +2,10 @@ package lurker
 
 import (
 	// "errors"
+	"fmt"
 	"github.com/fluent/fluent-logger-golang/fluent"
+	"io"
+	"os"
 	"time"
 )
 
@@ -51,17 +54,18 @@ func (x *Queue) Emit(tag string, timestamp time.Time, msg map[string]interface{}
  Emitter for standard output
 **************************************/
 type Stdout struct {
-	Messages []map[string]interface{}
+	dst io.Writer
 }
 
 // Constructor of Stdout Emitter
 func NewStdout() (*Stdout, error) {
-	return &Stdout{}, nil
+	out := &Stdout{dst: os.Stdout}
+	return out, nil
 }
 
 // Stdout::Emit
 func (x *Stdout) Emit(tag string, timestamp time.Time, msg map[string]interface{}) error {
-	x.Messages = append(x.Messages, msg)
+	fmt.Fprintln(x.dst, timestamp, tag, msg)
 	return nil
 }
 
