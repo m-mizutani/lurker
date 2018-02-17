@@ -5,6 +5,12 @@ go:
   - 1.8
   - 1.9.x
   - master
+addons:
+  apt:
+    packages:
+    - libpcap0.8
+    - libpcap-dev
+
 before_install:
   - go get -u github.com/golang/dep/cmd/dep
 install:
