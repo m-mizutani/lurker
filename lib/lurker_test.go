@@ -2,6 +2,7 @@ package lurker
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -15,16 +16,16 @@ func TestLurker(t *testing.T) {
 func NewLurker() (Lurker, *Queue) {
 	lurker := New()
 	lurker.SetPcapFile("../test/test_data.pcap")
-	queue := Queue{}
-	lurker.AddEmitter(&queue)
-	return lurker, &queue
+	queue, _ := NewQueue()
+	lurker.AddEmitter(queue)
+	return lurker, queue
 }
 
 func TestEmitterQueueWithoutHandler(t *testing.T) {
 	lurker, queue := NewLurker()
 	lurker.Loop()
 
-	assert.Equal(t, len(queue.Messages), 0,
+	require.Equal(t, len(queue.Messages), 0,
 		"emitter with no handler recieved message(s)")
 }
 
@@ -33,9 +34,7 @@ func TestArpSpoofer(t *testing.T) {
 	lurker.AddArpSpoofer()
 	lurker.Read(2)
 
-	if len(queue.Messages) != 1 {
-		t.Fatal("no log by ArpSpoofer")
-	}
+	require.Equal(t, 1, len(queue.Messages), "no log by ArpSpoofer")
 
 	m := queue.Messages[0]
 	assert.Equal(t, "06:35:8a:6d:7d:37", m["src_hw"], "src_hw is not matched")

@@ -71,7 +71,7 @@ func (x *Lurker) SetPcapDev(devName string) error {
 //
 
 func (x *Lurker) AddFluentdEmitter(addr string) error {
-	emitter, err := NewEmiter("fluentd")
+	emitter, err := NewFluentd(addr, 24224)
 	if err != nil {
 		return err
 	}
