@@ -1,6 +1,7 @@
 package lurker
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -23,9 +24,8 @@ func TestEmitterQueueWithoutHandler(t *testing.T) {
 	lurker, queue := NewLurker()
 	lurker.Loop()
 
-	if len(queue.Messages) > 0 {
-		t.Error("emitter with no handler recieved message(s)")
-	}
+	assert.Equal(t, len(queue.Messages), 0,
+		"emitter with no handler recieved message(s)")
 }
 
 func TestArpSpoofer(t *testing.T) {
@@ -38,15 +38,7 @@ func TestArpSpoofer(t *testing.T) {
 	}
 
 	m := queue.Messages[0]
-	if m["src_hw"] != "06:35:8a:6d:7d:37" {
-		t.Error("src_hw is not matched,", m["src_hw"])
-	}
-
-	if m["src_pr"] != "172.30.1.1" {
-		t.Error("src_pr is not matched,", m["src_pr"])
-	}
-
-	if m["dst_pr"] != "172.30.1.17" {
-		t.Error("dst_pr is not matched,", m["dst_pr"])
-	}
+	assert.Equal(t, "06:35:8a:6d:7d:37", m["src_hw"], "src_hw is not matched")
+	assert.Equal(t, "172.30.1.1", m["src_pr"], "src_pr is not matched")
+	assert.Equal(t, "172.30.1.17", m["dst_pr"], "dst_pr is not matched")
 }
