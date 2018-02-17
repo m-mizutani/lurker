@@ -6,7 +6,7 @@ go:
   - 1.9.x
   - master
 before_install:
-  - go install -v github.com/golang/dep/cmd/dep
+  - go get -u github.com/golang/dep/cmd/dep
 install:
   - dep ensure
 script:
