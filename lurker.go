@@ -83,7 +83,7 @@ func (x *lurker) loop() error {
 
 	if !x.dryRun && x.isOnTheFly {
 		pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
-		// pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle))
+		pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle))
 	}
 
 	for _, handler := range pktHandlers {
@@ -97,8 +97,10 @@ func (x *lurker) loop() error {
 		for _, hdlr := range pktHandlers {
 			if err := hdlr.handle(pkt); err != nil {
 				logger.WithFields(logrus.Fields{
-					"packet": pkt,
-					"error":  err,
+					"packet":      pkt,
+					"error":       err,
+					"handlerType": reflect.TypeOf(hdlr),
+					"handler":     hdlr,
 				}).Error("Fail to handle packet")
 			}
 		}

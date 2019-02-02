@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"net"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -10,7 +11,9 @@ import (
 )
 
 type tcpHandler struct {
-	pcapHandle *pcap.Handle
+	pcapHandle  *pcap.Handle
+	targetAddrs []net.IP
+	targets     []string
 }
 
 func newTcpHandler(pcapHandle *pcap.Handle) *tcpHandler {
@@ -19,8 +22,12 @@ func newTcpHandler(pcapHandle *pcap.Handle) *tcpHandler {
 	}
 }
 
+func (x *tcpHandler) setup() error {
+	return nil
+}
+
 func (x *tcpHandler) handle(pkt gopacket.Packet) error {
-	rawData := createTCPReply(pkt)
+	rawData := createTCPReply(pkt, x.targetAddrs)
 	if rawData == nil {
 		return nil // nothing to do
 	}
@@ -32,11 +39,7 @@ func (x *tcpHandler) handle(pkt gopacket.Packet) error {
 	return nil
 }
 
-func (x *tcpHandler) setup() error {
-	return nil
-}
-
-func createTCPReply(pkt gopacket.Packet) []byte {
+func createTCPReply(pkt gopacket.Packet, targets []net.IP) []byte {
 	tcpLayer := (pkt).Layer(layers.LayerTypeTCP)
 	if tcpLayer == nil {
 		return nil
@@ -59,28 +62,51 @@ func createTCPReply(pkt gopacket.Packet) []byte {
 	}
 
 	ipv4Layer := (pkt).Layer(layers.LayerTypeIPv4)
-	ipv4Pkt, _ := ipv4Layer.(*layers.IPv4)
+	ipv4Pkt, ok := ipv4Layer.(*layers.IPv4)
+	if !ok {
+		return nil
+	}
 
-	options := gopacket.SerializeOptions{ComputeChecksums: true}
+	if len(targets) > 0 && !findIPAddr(targets, ipv4Pkt.DstIP) {
+		return nil
+	}
+
+	options := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
 	buffer := gopacket.NewSerializeBuffer()
-	gopacket.SerializeLayers(buffer, options,
-		&layers.Ethernet{
-			SrcMAC: ethPkt.DstMAC,
-			DstMAC: ethPkt.SrcMAC,
-		},
-		&layers.IPv4{
-			SrcIP: ipv4Pkt.DstIP,
-			DstIP: ipv4Pkt.SrcIP,
-		},
-		&layers.TCP{
-			SrcPort: tcpPkt.DstPort,
-			DstPort: tcpPkt.SrcPort,
-			Ack:     tcpPkt.Seq + 1,
-			Seq:     rand.Uint32(),
-			SYN:     true,
-			ACK:     true,
-		},
+
+	newEtherLayer := &layers.Ethernet{
+		SrcMAC:       ethPkt.DstMAC,
+		DstMAC:       ethPkt.SrcMAC,
+		EthernetType: ethPkt.EthernetType,
+	}
+
+	newIpv4Layer := &layers.IPv4{
+		Version:  4,
+		TTL:      64,
+		Protocol: layers.IPProtocolTCP,
+		SrcIP:    ipv4Pkt.DstIP,
+		DstIP:    ipv4Pkt.SrcIP,
+	}
+	newTCPLayer := &layers.TCP{
+		SrcPort: tcpPkt.DstPort,
+		DstPort: tcpPkt.SrcPort,
+		Ack:     tcpPkt.Seq + 1,
+		Seq:     rand.Uint32(),
+		SYN:     true,
+		ACK:     true,
+		Window:  65535,
+	}
+	newTCPLayer.SetNetworkLayerForChecksum(newIpv4Layer)
+
+	err := gopacket.SerializeLayers(buffer, options,
+		newEtherLayer,
+		newIpv4Layer,
+		newTCPLayer,
 	)
+	if err != nil {
+		logger.WithError(err).Fatal("fail to create data")
+	}
+
 	outPktData := buffer.Bytes()
 
 	return outPktData
