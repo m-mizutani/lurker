@@ -1,31 +1,36 @@
 package main
 
 import (
-	"github.com/jessevdk/go-flags"
-	lurker "github.com/m-mizutani/lurker/lib"
 	"log"
 	"os"
+
+	"github.com/jessevdk/go-flags"
+	"github.com/sirupsen/logrus"
 )
 
-type Options struct {
-	FileName  string `short:"r" description:"A pcap file" value-name:"FILE"`
-	DevName   string `short:"i" description:"Interface name" value-name:"DEV"`
-	FluentDst string `short:"f" description:"Destination of fluentd logs" value-name:"HOST:PORT"`
+var logger = logrus.New()
+
+type options struct {
+	FileName string `short:"r" description:"A pcap file" value-name:"FILE"`
+	DevName  string `short:"i" description:"Interface name" value-name:"DEV"`
+	Target   string `short:"t" description:"Target Address" value-name:"IPADDR"`
 }
 
 func main() {
-	var opts Options
+	logger.SetLevel(logrus.DebugLevel)
+
+	var opts options
 
 	_, ParseErr := flags.ParseArgs(&opts, os.Args)
 	if ParseErr != nil {
 		os.Exit(1)
 	}
 
-	lkr := lurker.Lurker{}
-	defer lkr.Close()
+	lkr := newLurker()
+	defer lkr.close()
 
 	if opts.DevName != "" {
-		err := lkr.SetPcapDev(opts.DevName)
+		err := lkr.setPcapDev(opts.DevName)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
@@ -33,24 +38,17 @@ func main() {
 	}
 
 	if opts.FileName != "" {
-		err := lkr.SetPcapFile(opts.FileName)
+		err := lkr.setPcapFile(opts.FileName)
 		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
+			logger.Fatal(err)
 		}
 	}
 
-	if opts.FluentDst != "" {
-		err := lkr.AddFluentdEmitter(opts.FluentDst)
-		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
-		}
+	if opts.Target != "" {
+		lkr.targetAddrs = []string{opts.Target}
 	}
 
-	loopErr := lkr.Loop()
-	if loopErr != nil {
-		log.Fatal(loopErr)
-		os.Exit(1)
+	if err := lkr.loop(); err != nil {
+		logger.Fatal(err)
 	}
 }

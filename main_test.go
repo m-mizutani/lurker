@@ -1,12 +1,10 @@
-package main
+package main_test
 
 import (
-	Lurker "github.com/m-mizutani/lurker/lib"
 	"testing"
+	// "github.com/m-mizutani/lurker"
 )
 
 func TestMain(t *testing.T) {
-	lurker := Lurker.New()
-	lurker.SetPcapFile("./test/test_data.pcap")
-	lurker.Loop()
+
 }
