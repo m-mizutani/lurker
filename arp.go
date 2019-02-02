@@ -43,7 +43,7 @@ func (x *arpHandler) setup() error {
 		}
 		logger.WithFields(logrus.Fields{
 			"target": target,
-		}).Info("Add target IP address")
+		}).Info("Add target IP address to ARP handler")
 		x.targetAddrs = append(x.targetAddrs, addr)
 	}
 

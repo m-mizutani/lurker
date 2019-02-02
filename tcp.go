@@ -8,6 +8,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type tcpHandler struct {
@@ -16,13 +17,25 @@ type tcpHandler struct {
 	targets     []string
 }
 
-func newTcpHandler(pcapHandle *pcap.Handle) *tcpHandler {
+func newTcpHandler(pcapHandle *pcap.Handle, targets []string) *tcpHandler {
 	return &tcpHandler{
 		pcapHandle: pcapHandle,
+		targets:    targets,
 	}
 }
 
 func (x *tcpHandler) setup() error {
+	for _, target := range x.targets {
+		addr := net.ParseIP(target)
+		if addr == nil {
+			return errors.New("Parse error of target IP address " + target)
+		}
+		logger.WithFields(logrus.Fields{
+			"target": target,
+		}).Info("Add target IP address to TCP handler")
+		x.targetAddrs = append(x.targetAddrs, addr)
+	}
+
 	return nil
 }
 
@@ -108,6 +121,13 @@ func createTCPReply(pkt gopacket.Packet, targets []net.IP) []byte {
 	}
 
 	outPktData := buffer.Bytes()
+
+	logger.WithFields(logrus.Fields{
+		"src_addr": ipv4Pkt.SrcIP,
+		"dst_addr": ipv4Pkt.DstIP,
+		"src_port": tcpPkt.SrcPort,
+		"dst_port": tcpPkt.DstPort,
+	}).Debug("Created TCP syn+ack reply")
 
 	return outPktData
 }

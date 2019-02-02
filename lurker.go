@@ -83,7 +83,7 @@ func (x *lurker) loop() error {
 
 	if !x.dryRun && x.isOnTheFly {
 		pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
-		pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle))
+		pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle, x.targetAddrs))
 	}
 
 	for _, handler := range pktHandlers {
