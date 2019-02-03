@@ -80,7 +80,7 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 }
 
 func (x *dataStoreHandler) timer(t time.Time) error {
-	logger.WithField("time", t).Debug("tick")
+
 	return nil
 }
 
