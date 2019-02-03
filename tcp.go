@@ -3,6 +3,7 @@ package main
 import (
 	"math/rand"
 	"net"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -51,6 +52,9 @@ func (x *tcpHandler) handle(pkt gopacket.Packet) error {
 
 	return nil
 }
+
+func (x *tcpHandler) timer(t time.Time) error { return nil }
+func (x *tcpHandler) teardown() error         { return nil }
 
 func createTCPReply(pkt gopacket.Packet, targets []net.IP) []byte {
 	tcpLayer := (pkt).Layer(layers.LayerTypeTCP)

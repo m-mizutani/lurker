@@ -23,6 +23,64 @@ type lurker struct {
 type packetHandler interface {
 	setup() error
 	handle(pkt gopacket.Packet) error
+	timer(t time.Time) error
+	teardown() error
+}
+
+type packetHandlers []packetHandler
+
+func (x *packetHandlers) setup() error {
+	for _, handler := range *x {
+		if err := handler.setup(); err != nil {
+			return errors.Wrapf(err, "Fail to setup %s", reflect.TypeOf(handler))
+		}
+	}
+
+	return nil
+}
+
+func (x *packetHandlers) handle(pkt gopacket.Packet) error {
+	for _, hdlr := range *x {
+		if err := hdlr.handle(pkt); err != nil {
+			logger.WithFields(logrus.Fields{
+				"packet":      pkt,
+				"error":       err,
+				"handlerType": reflect.TypeOf(hdlr),
+				"handler":     hdlr,
+			}).Error("Fail to handle packet")
+		}
+	}
+
+	return nil
+}
+
+func (x *packetHandlers) timer(t time.Time) error {
+	for _, hdlr := range *x {
+		if err := hdlr.timer(t); err != nil {
+			logger.WithFields(logrus.Fields{
+				"time":        t,
+				"error":       err,
+				"handlerType": reflect.TypeOf(hdlr),
+				"handler":     hdlr,
+			}).Error("Fail to timer operation")
+		}
+	}
+
+	return nil
+}
+func (x *packetHandlers) teardown() error {
+	for _, hdlr := range *x {
+		if err := hdlr.teardown(); err != nil {
+			logger.WithFields(logrus.Fields{
+				"error":       err,
+				"handlerType": reflect.TypeOf(hdlr),
+				"handler":     hdlr,
+			}).Error("Fail to teardown")
+			return errors.Wrapf(err, "handler teardown error %s", reflect.TypeOf(hdlr))
+		}
+	}
+
+	return nil
 }
 
 func newLurker() lurker {
@@ -79,37 +137,57 @@ func (x *lurker) loop() error {
 		return errors.New("No available device or pcap file, need to specify one of them")
 	}
 
-	var pktHandlers []packetHandler
+	pktHandlers := packetHandlers{
+		newDataStoreHanlder(),
+	}
 
 	if !x.dryRun && x.isOnTheFly {
 		pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
 		pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle, x.targetAddrs))
 	}
 
-	for _, handler := range pktHandlers {
-		if err := handler.setup(); err != nil {
-			return errors.Wrapf(err, "Fail to setup %s", reflect.TypeOf(handler))
-		}
+	if err := pktHandlers.setup(); err != nil {
+		return err
 	}
 
 	packetSource := gopacket.NewPacketSource(x.pcapHandle, x.pcapHandle.LinkType())
-	for pkt := range packetSource.Packets() {
-		for _, hdlr := range pktHandlers {
-			if err := hdlr.handle(pkt); err != nil {
-				logger.WithFields(logrus.Fields{
-					"packet":      pkt,
-					"error":       err,
-					"handlerType": reflect.TypeOf(hdlr),
-					"handler":     hdlr,
-				}).Error("Fail to handle packet")
+	var timestamp *time.Time
+	ticker := time.NewTicker(time.Second)
+
+	for {
+		select {
+		case pkt := <-packetSource.Packets():
+			if pkt == nil {
+				return pktHandlers.teardown()
+			}
+
+			if !x.isOnTheFly {
+				ts := pkt.Metadata().Timestamp
+
+				if timestamp == nil {
+					timestamp = &time.Time{}
+					*timestamp = ts
+				} else {
+					for ; ts.Sub(*timestamp) > time.Second; *timestamp = timestamp.Add(time.Second) {
+						pktHandlers.timer(*timestamp)
+					}
+				}
+			}
+
+			if err := pktHandlers.handle(pkt); err != nil {
+				return err
+			}
+
+		case ts := <-ticker.C:
+			if x.isOnTheFly {
+				pktHandlers.timer(ts)
 			}
 		}
 	}
-
-	return nil
 }
 
 func (x *lurker) close() {
+
 	if x.pcapHandle != nil {
 		x.pcapHandle.Close()
 	}

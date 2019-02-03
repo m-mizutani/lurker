@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -64,6 +65,9 @@ func (x *arpHandler) handle(pkt gopacket.Packet) error {
 
 	return nil
 }
+
+func (x *arpHandler) timer(t time.Time) error { return nil }
+func (x *arpHandler) teardown() error         { return nil }
 
 func findIPAddr(addrSet []net.IP, target net.IP) bool {
 	for _, addr := range addrSet {
