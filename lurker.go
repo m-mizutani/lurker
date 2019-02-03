@@ -29,6 +29,10 @@ type packetHandler interface {
 
 type packetHandlers []packetHandler
 
+const (
+	pcapSnapshotLen uint32 = 0xffff
+)
+
 func (x *packetHandlers) setup() error {
 	for _, handler := range *x {
 		if err := handler.setup(); err != nil {

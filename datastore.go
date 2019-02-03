@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"time"
 
+	"github.com/google/gopacket/layers"
+
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/pcapgo"
 )
 
 type dataStoreHandler struct {
@@ -19,6 +23,20 @@ type pktLog struct {
 type flowLog struct {
 	packets []pktLog
 	last    tick
+}
+
+func (x flowLog) dumpPcapData() (*bytes.Buffer, error) {
+	pcapData := new(bytes.Buffer)
+
+	w := pcapgo.NewWriter(pcapData)
+	w.WriteFileHeader(pcapSnapshotLen, layers.LinkTypeEthernet)
+	for _, log := range x.packets {
+		if err := w.WritePacket(log.capInfo, log.data); err != nil {
+			return nil, err
+		}
+	}
+
+	return pcapData, nil
 }
 
 type flowKey struct {
@@ -95,6 +113,14 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 			logger.WithField("key", fkey).Trace("Expired")
 			delete(x.flowLogMap, *fkey)
 			delete(x.flowLogMap, fkey.swap())
+
+			buf, err := flow.dumpPcapData()
+			if err != nil {
+				logger.WithError(err).Error("Fail to dump pcap data")
+				return 0
+			}
+			logger.WithField("buf_len", len(buf.Bytes())).Trace("Dump pcap data")
+
 			return 0
 		})
 	}
