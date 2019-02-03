@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/sirupsen/logrus"
 )
 
 type dataStoreHandler struct {
@@ -72,31 +71,31 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 	}
 
 	flow, ok := x.flowLogMap[*fkey]
+	var initWaitTime tick = 60
+	var extendWaitTime tick = 30
+
 	if !ok {
 		flow = &flowLog{packets: []pktLog{}, last: x.table.current}
 		x.flowLogMap[*fkey] = flow
 		x.flowLogMap[fkey.swap()] = flow
 
-		x.table.add(30, func(current tick) bool {
+		x.table.add(initWaitTime, func(current tick) tick {
 			flow, ok := x.flowLogMap[*fkey]
 			if !ok {
 				logger.WithField("flowKey", fkey).Warn("Missing flow data in map")
-				return true
+				return 0
 			}
 
-			if current > 0 && current-flow.last < 30 {
-				logger.WithFields(logrus.Fields{
-					"key": fkey,
-				}).Trace("Extend")
-				return false // extend
+			// If current is 0, this callback is invoked by flush()
+			if current > 0 && current-flow.last < extendWaitTime {
+				logger.WithField("key", fkey).Trace("Extended")
+				return extendWaitTime // extend
 			}
 
-			logger.WithFields(logrus.Fields{
-				"key": fkey,
-			}).Trace("Clear")
+			logger.WithField("key", fkey).Trace("Expired")
 			delete(x.flowLogMap, *fkey)
 			delete(x.flowLogMap, fkey.swap())
-			return true
+			return 0
 		})
 	}
 

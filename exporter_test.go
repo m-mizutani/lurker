@@ -20,11 +20,11 @@ func (x *lurker) Loop() error {
 var NewTimerTable = newTimerTable
 
 type Tick tick
-type TimerCallback func(Tick) bool
+type TimerCallback func(Tick) Tick
 
 func (x *timerTable) Add(delay Tick, callback TimerCallback) error {
-	return x.add(tick(delay), func(t tick) bool {
-		return callback(Tick(t))
+	return x.add(tick(delay), func(t tick) tick {
+		return tick(callback(Tick(t)))
 	})
 }
 func (x *timerTable) Update(count tick) {

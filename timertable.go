@@ -3,7 +3,7 @@ package main
 import "github.com/pkg/errors"
 
 type tick uint64
-type timerCallback func(tick) bool
+type timerCallback func(tick) tick
 
 type timerTask struct {
 	delay    tick
@@ -56,9 +56,9 @@ func (x *timerTable) update(count tick) {
 		now := x.current + i
 		p := now % x.maxTick
 		for _, task := range x.units[p].tasks {
-			if !task.callback(now) {
+			if extend := task.callback(now); extend > 0 {
 				// extend
-				x.add(i+task.delay, task.callback)
+				x.add(i+extend, task.callback)
 			}
 		}
 		x.units[p].tasks = []timerTask{}

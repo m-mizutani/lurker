@@ -11,14 +11,14 @@ func TestTimer(t *testing.T) {
 	table := lurker.NewTimerTable(10)
 	i := 0
 	p := &i
-	table.Add(3, func(t lurker.Tick) bool {
+	table.Add(3, func(t lurker.Tick) lurker.Tick {
 		*p = 7
-		return true
+		return 0
 	})
 
-	table.Add(4, func(t lurker.Tick) bool {
+	table.Add(4, func(t lurker.Tick) lurker.Tick {
 		*p = 9
-		return true
+		return 0
 	})
 
 	table.Update(1)
@@ -33,9 +33,9 @@ func TestTimerExtend(t *testing.T) {
 	table := lurker.NewTimerTable(10)
 	i := 0
 	p := &i
-	table.Add(3, func(t lurker.Tick) bool {
+	table.Add(3, func(t lurker.Tick) lurker.Tick {
 		*p++
-		return false
+		return 3
 	})
 
 	table.Update(2)
