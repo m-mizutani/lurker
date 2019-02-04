@@ -18,6 +18,9 @@ type lurker struct {
 	isOnTheFly  bool
 	dryRun      bool
 	targetAddrs []string
+
+	awsRegion   string
+	awsS3Bucket string
 }
 
 type packetHandler interface {
@@ -136,14 +139,19 @@ func (x *lurker) setPcapDev(devName string) error {
 	return nil
 }
 
+func (x *lurker) setS3Bucket(region, s3bucket string) {
+	x.awsRegion = region
+	x.awsS3Bucket = s3bucket
+}
+
 func (x *lurker) loop() error {
 	if x.pcapHandle == nil {
 		return errors.New("No available device or pcap file, need to specify one of them")
 	}
 
-	pktHandlers := packetHandlers{
-		newDataStoreHanlder(),
-	}
+	dh := newDataStoreHanlder()
+	dh.setS3Bucket(x.awsRegion, x.awsS3Bucket)
+	pktHandlers := packetHandlers{dh}
 
 	if !x.dryRun && x.isOnTheFly {
 		pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
@@ -162,6 +170,7 @@ func (x *lurker) loop() error {
 		select {
 		case pkt := <-packetSource.Packets():
 			if pkt == nil {
+				logger.Debug("teardown handlers")
 				return pktHandlers.teardown()
 			}
 
@@ -191,7 +200,6 @@ func (x *lurker) loop() error {
 }
 
 func (x *lurker) close() {
-
 	if x.pcapHandle != nil {
 		x.pcapHandle.Close()
 	}

@@ -11,9 +11,11 @@ import (
 var logger = logrus.New()
 
 type options struct {
-	FileName string `short:"r" description:"A pcap file" value-name:"FILE"`
-	DevName  string `short:"i" description:"Interface name" value-name:"DEV"`
-	Target   string `short:"t" description:"Target Address" value-name:"IPADDR"`
+	FileName    string `short:"r" description:"A pcap file" value-name:"FILE"`
+	DevName     string `short:"i" description:"Interface name" value-name:"DEV"`
+	Target      string `short:"t" description:"Target Address" value-name:"IPADDR"`
+	AwsRegion   string `long:"aws-region"`
+	AwsS3Bucket string `long:"aws-s3-bucket"`
 }
 
 func main() {
@@ -46,6 +48,10 @@ func main() {
 
 	if opts.Target != "" {
 		lkr.targetAddrs = []string{opts.Target}
+	}
+
+	if opts.AwsRegion != "" && opts.AwsS3Bucket != "" {
+		lkr.setS3Bucket(opts.AwsRegion, opts.AwsS3Bucket)
 	}
 
 	if err := lkr.loop(); err != nil {
