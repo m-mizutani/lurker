@@ -1,16 +1,26 @@
 language: go
 go:
-  - 1.11.x
+- 1.11.x
 env:
+  matrix:
   - GO111MODULE=on
-addons:
   apt:
     packages:
     - libpcap0.8
     - libpcap-dev
-
 install:
-  - go get
+- go get
 script:
-  - go test -v
+- go test -v
+- go build -o build/lurker .
 sudo: false
+deploy:
+  provider: s3
+  secret_access_key:
+    secure: SBhxMtXSjSC1wNqCu7CQhVygV8oYm0J3j62Obu3/kbanGsOKxbZB/tdgYfpRzDe9JihPrTxPvLyweUCRi9hmNLSAqq4G9Z4aDUzX8ucKopdaxEsZjWDG2Fmw5hPDKZ0x3uUb8ckGXDU46+ajqFBFMgjrUCRpYvw6Muq5eaU1d8EQw2Rqb3XI1eHCuJWILvEmqmq8iRxsyp3uq4URvZrnzvzXmsAowXW8azPefcA5GZJmF4nMCWlbz34f97LfQmicyLgkIlIHc0yHL61pA9JxHAQVt/btBiaeAQPF0/eCjGNBim7bauTu1v4LbHfX6u4Gfuu4aAbjVmvqYWeZV+6D7QdQf11eN019eua5OtTArBVjIZlZqOAfBFS2lbG0qN/LgcHaMsnoaxBVfAHDo4ZMzXmuQdM21SoKmWJriWZwGYZlrPR4mbGbdl43huJBvUKvg4EigxSXxNCzuy2ID9iMLGUSeSuFLGVkjbv5lvFuZ1Vw7pgczYR7GsInGTitvHWYwF4PFu6zGEdj0Q8GwlX0V962DsVHMkhZ2waQQ+eGrMtusgbmKf7g4DLJ7PBB/U6zKBmlRGqQ4l0NVW5Hoj3pnEjn4hZwK6F0n+ux+C/37kbZOr5C/73i1/wIyqxgZP2Lv6YUVeSZChMcrBrVHa/6lwtVPGMLyLJ7rl/2EOe9pMk=
+  access_key_id:
+    secure: jiKAYP2/hJ+R9/NMSiDHzFaWetRwXFtXhNFpAQHNGS1eLXcKVhDM4QD+QAxR7+vkKwM8VuviyhXHQk2IzgFr4I57Nxu4g5Qiq4cl0yvu8aDOPx/VeVf41LjOoFfdu1hYc1NrzrF7FGxVGuujaUZc6u71mvUynGxTXlZBT5STf6nyPpl6go5PDMy6BzL5up6V8gk4N1u5rPmYPz+wgRVHkUqZ14lm87d4ojMPa+kA9kGvO5Z2rbFK56FNmER5kS3Uf+Ouh7Vnc6QynV/iMXccY85UIfpY6ayICf8F3XE2GATbScjyD8lRBbXBhJuXr2wrNwQ+d1jnUHEcvcTpkLLsvzwjmvMVKTPNydFlpxJMSOFKpAZGQhuNpO5bztEMfmM0+tVoCqHBLKRQBbrzNl/h+LaiwS5PF3zkCWJ0FEBg1pfGnjVJPgc6dV67NI/iIXwivLObX98PTrwn9fRUD159mkfkVwN0zvt0qAbLIPzyaMtupU67CCxIccB1VqAXQJvRnbSvewcJotRErGjf5ngHDidsL6TlJkJdSm3Z2YxrwCsTomCqloGjVUg/n2M8yJkqmcpoSryKIPWJC6b4GS985Z2+PQKvRxNwpYrLe7odMbKb9GR+oiQoGS64VfLiaMMEdcioi8r0KQqlnQnkf2JY/XZqIakkb9NsnW7kLtxM7ME=
+  bucket: lurker-binary
+  acl: public_read
+  skip_cleanup: true
+  local_dir: build
