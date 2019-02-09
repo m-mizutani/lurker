@@ -4,6 +4,7 @@ go:
 env:
   matrix:
   - GO111MODULE=on
+addons:
   apt:
     packages:
     - libpcap0.8
