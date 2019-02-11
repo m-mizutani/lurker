@@ -147,7 +147,7 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 
 	flow, ok := x.flowLogMap[*fkey]
 	var initWaitTime tick = 60
-	var extendWaitTime tick = 30
+	var extendWaitTime tick = 60
 
 	if !ok {
 		flow = &flowLog{
