@@ -16,16 +16,22 @@ type options struct {
 	Target      string `short:"t" description:"Target Address" value-name:"IPADDR"`
 	AwsRegion   string `long:"aws-region"`
 	AwsS3Bucket string `long:"aws-s3-bucket"`
+	Verbose     bool   `short:"v" long:"verbose" description:"Verbose output"`
 }
 
 func main() {
-	logger.SetLevel(logrus.DebugLevel)
 
 	var opts options
 
 	_, ParseErr := flags.ParseArgs(&opts, os.Args)
 	if ParseErr != nil {
 		os.Exit(1)
+	}
+
+	if opts.Verbose {
+		logger.SetLevel(logrus.DebugLevel)
+	} else {
+		logger.SetLevel(logrus.InfoLevel)
 	}
 
 	lkr := newLurker()
