@@ -16,6 +16,7 @@ type options struct {
 	Target      string `short:"t" description:"Target Address" value-name:"IPADDR"`
 	AwsRegion   string `long:"aws-region"`
 	AwsS3Bucket string `long:"aws-s3-bucket"`
+	DisableArp  bool   `long:"disable-arp" description:"Disable ARP responder"`
 	Verbose     bool   `short:"v" long:"verbose" description:"Verbose output"`
 }
 
@@ -59,6 +60,8 @@ func main() {
 	if opts.AwsRegion != "" && opts.AwsS3Bucket != "" {
 		lkr.setS3Bucket(opts.AwsRegion, opts.AwsS3Bucket)
 	}
+
+	lkr.disableArp = opts.DisableArp
 
 	if err := lkr.loop(); err != nil {
 		logger.Fatal(err)

@@ -17,6 +17,7 @@ type lurker struct {
 	pcapHandle  *pcap.Handle
 	isOnTheFly  bool
 	dryRun      bool
+	disableArp  bool
 	targetAddrs []string
 
 	awsRegion   string
@@ -154,7 +155,9 @@ func (x *lurker) loop() error {
 	pktHandlers := packetHandlers{dh}
 
 	if !x.dryRun && x.isOnTheFly {
-		pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
+		if !x.disableArp {
+			pktHandlers = append(pktHandlers, newArpHandler(x.pcapHandle, x.sourceName, x.targetAddrs))
+		}
 		pktHandlers = append(pktHandlers, newTcpHandler(x.pcapHandle, x.targetAddrs))
 	}
 
