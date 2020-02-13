@@ -1,0 +1,14 @@
+[Unit]
+Description=lurker: Low interaction honeypot in GO
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/default/lurker
+ExecStart=/usr/local/bin/lurker $LURKER_OPTS
+KillMode=process
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
+Alias=lurker.service
+

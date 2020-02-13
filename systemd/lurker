@@ -1,0 +1,5 @@
+#
+# Lurker options
+#
+# To run Lurker, specify "-i DEV" to LURKER_OPTS at least
+LURKER_OPTS=""
