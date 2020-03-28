@@ -7,7 +7,7 @@ func init() {
 }
 
 // Lurker
-var NewLurker = newLurker
+var NewLurker = newLurker //nolint
 
 func (x *lurker) SetPcapFile(a string) error {
 	return x.setPcapFile(a)
@@ -17,7 +17,7 @@ func (x *lurker) Loop() error {
 }
 
 // timerTable
-var NewTimerTable = newTimerTable
+var NewTimerTable = newTimerTable //nolint
 
 type Tick tick
 type TimerCallback func(Tick) Tick

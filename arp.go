@@ -108,7 +108,7 @@ func createARPReply(pkt gopacket.Packet, deviceAddr net.HardwareAddr, targets []
 	var options gopacket.SerializeOptions
 	buffer := gopacket.NewSerializeBuffer()
 
-	gopacket.SerializeLayers(buffer, options,
+	err := gopacket.SerializeLayers(buffer, options,
 		&layers.Ethernet{
 			SrcMAC:       deviceAddr,
 			DstMAC:       ethPkt.SrcMAC,
@@ -126,6 +126,11 @@ func createARPReply(pkt gopacket.Packet, deviceAddr net.HardwareAddr, targets []
 			DstProtAddress:    arpPkt.SourceProtAddress,
 		},
 	)
+	if err != nil {
+		logger.WithError(err).Error("Fail to serialize ARP packet")
+		return nil
+	}
+
 	outPktData := buffer.Bytes()
 
 	return outPktData

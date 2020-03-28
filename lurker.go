@@ -185,7 +185,9 @@ func (x *lurker) loop() error {
 					*timestamp = ts
 				} else {
 					for ; ts.Sub(*timestamp) > time.Second; *timestamp = timestamp.Add(time.Second) {
-						pktHandlers.timer(*timestamp)
+						if err := pktHandlers.timer(*timestamp); err != nil {
+							return errors.Wrap(err, "Fail in timer process")
+						}
 					}
 				}
 			}
@@ -196,7 +198,9 @@ func (x *lurker) loop() error {
 
 		case ts := <-ticker.C:
 			if x.isOnTheFly {
-				pktHandlers.timer(ts)
+				if err := pktHandlers.timer(ts); err != nil {
+					return errors.Wrap(err, "Fail in internval timer")
+				}
 			}
 		}
 	}
