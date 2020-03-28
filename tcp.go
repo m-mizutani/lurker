@@ -67,8 +67,8 @@ func createTCPReply(pkt gopacket.Packet, targets []net.IP) []byte {
 		return nil
 	}
 
-	if tcpPkt.FIN == true || tcpPkt.SYN == false ||
-		tcpPkt.RST == true || tcpPkt.ACK == true {
+	if tcpPkt.FIN || !tcpPkt.SYN ||
+		tcpPkt.RST || tcpPkt.ACK {
 		return nil
 	}
 
@@ -113,15 +113,18 @@ func createTCPReply(pkt gopacket.Packet, targets []net.IP) []byte {
 		ACK:     true,
 		Window:  65535,
 	}
-	newTCPLayer.SetNetworkLayerForChecksum(newIpv4Layer)
+	if err := newTCPLayer.SetNetworkLayerForChecksum(newIpv4Layer); err != nil {
+		logger.WithError(err).Error("Fail to set checksum")
+		return nil
+	}
 
-	err := gopacket.SerializeLayers(buffer, options,
+	if err := gopacket.SerializeLayers(buffer, options,
 		newEtherLayer,
 		newIpv4Layer,
 		newTCPLayer,
-	)
-	if err != nil {
-		logger.WithError(err).Fatal("fail to create data")
+	); err != nil {
+		logger.WithError(err).Error("fail to create data")
+		return nil
 	}
 
 	outPktData := buffer.Bytes()

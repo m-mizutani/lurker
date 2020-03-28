@@ -41,10 +41,12 @@ func (x flowLog) dumpPcapData() (*bytes.Buffer, error) {
 	pcapData := new(bytes.Buffer)
 
 	w := pcapgo.NewWriter(pcapData)
-	w.WriteFileHeader(pcapSnapshotLen, layers.LinkTypeEthernet)
+	if err := w.WriteFileHeader(pcapSnapshotLen, layers.LinkTypeEthernet); err != nil {
+		return nil, errors.Wrap(err, "Fail to dump pcap header")
+	}
 	for _, log := range x.packets {
 		if err := w.WritePacket(log.capInfo, log.data); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Fail to dump packet data")
 		}
 	}
 
@@ -158,7 +160,7 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 		x.flowLogMap[*fkey] = flow
 		x.flowLogMap[fkey.swap()] = flow
 
-		x.table.add(initWaitTime, func(current tick) tick {
+		callback := func(current tick) tick {
 			flow, ok := x.flowLogMap[*fkey]
 			if !ok {
 				logger.WithField("flowKey", fkey).Warn("Missing flow data in map")
@@ -176,8 +178,8 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 			delete(x.flowLogMap, fkey.swap())
 
 			if x.awsS3Bucket != "" {
+				x.wg.Add(1)
 				go func() {
-					x.wg.Add(1)
 					defer x.wg.Done()
 
 					if err := uploadToS3(*fkey, *flow, x.awsRegion, x.awsS3Bucket); err != nil {
@@ -187,7 +189,11 @@ func (x *dataStoreHandler) handle(pkt gopacket.Packet) error {
 			}
 
 			return 0
-		})
+		}
+
+		if err := x.table.add(initWaitTime, callback); err != nil {
+			return errors.Wrap(err, "Fail to add callback into timerTable")
+		}
 	}
 
 	flow.last = x.table.current

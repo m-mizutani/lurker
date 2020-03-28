@@ -37,7 +37,7 @@ func (x *timerTable) add(delay tick, callback timerCallback) error {
 	if delay >= x.maxTick {
 		return errors.New("Given delay is over than maximum tick")
 	}
-	if delay <= 0 {
+	if delay == 0 {
 		return errors.New("delay must be over 0")
 	}
 
@@ -58,7 +58,9 @@ func (x *timerTable) update(count tick) {
 		for _, task := range x.units[p].tasks {
 			if extend := task.callback(now); extend > 0 {
 				// extend
-				x.add(i+extend, task.callback)
+				if err := x.add(i+extend, task.callback); err != nil {
+					logger.WithError(err).Errorf("Fail to update timer when extending item: %d->%d %v", i, i+extend, task)
+				}
 			}
 		}
 		x.units[p].tasks = []timerTask{}
