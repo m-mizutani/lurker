@@ -1,6 +1,7 @@
 package network
 
 import (
+	"net"
 	"time"
 
 	"github.com/google/gopacket"
@@ -11,6 +12,7 @@ import (
 type Device interface {
 	ReadPacket() chan gopacket.Packet
 	WritePacket(gopacket.Packet) error
+	GetDeviceAddrs() ([]net.Addr, error)
 }
 
 type device struct {
@@ -50,4 +52,17 @@ func (x *device) WritePacket(pkt gopacket.Packet) error {
 	}
 
 	return nil
+}
+
+func (x *device) GetDeviceAddrs() ([]net.Addr, error) {
+	iface, err := net.InterfaceByName(x.name)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed lookup device").With("name", x.name)
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, goerr.Wrap(err, "fail to get device address").With("name", x.name)
+	}
+
+	return addrs, nil
 }

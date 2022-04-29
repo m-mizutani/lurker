@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/domain/handler/tcp"
 	"github.com/m-mizutani/lurker/pkg/infra"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
 	"github.com/m-mizutani/lurker/pkg/usecase"
@@ -35,7 +37,30 @@ func Run(argv []string) error {
 			}
 
 			clients := infra.New(infra.WithNetworkDevice(dev))
-			uc := usecase.New(clients)
+
+			var tcpOptions []tcp.Option
+			addrs, err := dev.GetDeviceAddrs()
+			if err != nil {
+				return err
+			}
+			for _, addr := range addrs {
+				ip, _, err := net.ParseCIDR(addr.String())
+				if err != nil {
+					return goerr.Wrap(err)
+				}
+				if ip.To4() == nil {
+					continue
+				}
+
+				tcpOptions = append(tcpOptions, tcp.WithAllowedNetwork(net.IPNet{
+					IP:   ip,
+					Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+				}))
+			}
+
+			uc := usecase.New(clients,
+				usecase.WithHandler(tcp.New(tcpOptions...)),
+			)
 
 			if err := uc.Loop(); err != nil {
 				return err
