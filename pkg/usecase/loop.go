@@ -11,7 +11,7 @@ func (x *Usecase) Loop() error {
 		}
 
 		for _, hdlr := range x.handlers {
-			if err := hdlr.Handle(pkt, x.output); err != nil {
+			if err := hdlr.Handle(pkt, x.spouts); err != nil {
 				return err
 			}
 		}

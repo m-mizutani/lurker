@@ -11,7 +11,7 @@ import (
 
 type Device interface {
 	ReadPacket() chan gopacket.Packet
-	WritePacket(gopacket.Packet) error
+	WritePacket([]byte) error
 	GetDeviceAddrs() ([]net.Addr, error)
 }
 
@@ -46,8 +46,8 @@ func (x *device) ReadPacket() chan gopacket.Packet {
 	return x.src.Packets()
 }
 
-func (x *device) WritePacket(pkt gopacket.Packet) error {
-	if err := x.handle.WritePacketData(pkt.Data()); err != nil {
+func (x *device) WritePacket(pktData []byte) error {
+	if err := x.handle.WritePacketData(pktData); err != nil {
 		return goerr.Wrap(err, "fail to send ARP reply")
 	}
 

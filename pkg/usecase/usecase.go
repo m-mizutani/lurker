@@ -1,20 +1,20 @@
 package usecase
 
 import (
-	"github.com/m-mizutani/lurker/pkg/domain/handler"
-	"github.com/m-mizutani/lurker/pkg/domain/model"
 	"github.com/m-mizutani/lurker/pkg/infra"
+	"github.com/m-mizutani/lurker/pkg/service/handler"
+	"github.com/m-mizutani/lurker/pkg/service/spout"
 )
 
 type Usecase struct {
 	clients  *infra.Clients
-	output   *model.Output
+	spouts   *spout.Spouts
 	handlers []handler.Handler
 }
 
 func New(clients *infra.Clients, options ...Option) *Usecase {
 	uc := &Usecase{
-		output:  model.NewOutput(),
+		spouts:  spout.New(clients),
 		clients: clients,
 	}
 

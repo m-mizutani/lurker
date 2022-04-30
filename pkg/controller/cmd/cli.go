@@ -5,9 +5,9 @@ import (
 	"net"
 
 	"github.com/m-mizutani/goerr"
-	"github.com/m-mizutani/lurker/pkg/domain/handler/tcp"
 	"github.com/m-mizutani/lurker/pkg/infra"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
+	"github.com/m-mizutani/lurker/pkg/service/handler/tcp"
 	"github.com/m-mizutani/lurker/pkg/usecase"
 	"github.com/urfave/cli/v2"
 )
