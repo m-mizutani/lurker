@@ -1,21 +1,39 @@
 package tcp
 
 import (
+	"encoding/binary"
+	"hash/fnv"
 	"math/rand"
 	"net"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/m-mizutani/ttlcache"
+
 	"github.com/m-mizutani/lurker/pkg/service/spout"
 )
 
 type tcpHandler struct {
 	allowList []net.IPNet
+	flows     *ttlcache.CacheTable[uint64, *tcpFlow]
+	elapsed   time.Duration
+	lastTick  uint64
+}
+
+type tcpFlow struct {
+	srcHost, dstHost gopacket.Endpoint
+	srcPort, dstPort uint16
+
+	baseSeq  uint32
+	nextSeq  uint32
+	recvData []byte
 }
 
 func New(optins ...Option) *tcpHandler {
-	hdlr := &tcpHandler{}
+	hdlr := &tcpHandler{
+		flows: ttlcache.New[uint64, *tcpFlow](),
+	}
 
 	for _, opt := range optins {
 		opt(hdlr)
@@ -38,30 +56,49 @@ func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *spout.Spouts) error {
 		return nil
 	}
 
-	if !l.tcp.SYN || l.tcp.ACK {
-		return nil
-	}
-
 	nw := pkt.NetworkLayer()
 	if nw == nil {
 		return nil
 	}
 	src, dst := nw.NetworkFlow().Endpoints()
 
-	if !x.isInAllowList(net.IP(dst.Raw())) {
+	tp := pkt.TransportLayer()
+	hv := flowHash(nw, tp)
+
+	if l.tcp.FIN || l.tcp.RST {
 		return nil
 	}
 
-	if err := spouts.Log("Recv SYN: %v:%d -> %v:%d\n", src, l.tcp.SrcPort, dst, l.tcp.DstPort); err != nil {
-		return err
-	}
+	if l.tcp.SYN && !l.tcp.ACK {
+		if !x.isInAllowList(net.IP(dst.Raw())) {
+			return nil
+		}
+		flow := &tcpFlow{
+			srcHost: src,
+			dstHost: dst,
+			srcPort: uint16(l.tcp.SrcPort),
+			dstPort: uint16(l.tcp.DstPort),
 
-	synAckPkt, err := createSynAckPacket(l)
-	if err != nil {
-		return err
-	}
-	if err := spouts.WritePacket(synAckPkt); err != nil {
-		return err
+			baseSeq: l.tcp.Seq,
+			nextSeq: l.tcp.Seq + 1,
+		}
+		x.flows.Set(hv, flow, 5)
+
+		synAckPkt, err := createSynAckPacket(l)
+		if err != nil {
+			return err
+		}
+		if err := spouts.WritePacket(synAckPkt); err != nil {
+			return err
+		}
+
+	} else if flow := x.flows.Get(hv); flow != nil {
+		if dst.String() == flow.dstHost.String() && l.tcp.DstPort == layers.TCPPort(flow.dstPort) {
+			if flow.nextSeq == l.tcp.Seq {
+				flow.recvData = append(flow.recvData, l.tcp.Payload...)
+				flow.nextSeq += uint32(len(l.tcp.Payload))
+			}
+		}
 	}
 
 	return nil
@@ -81,13 +118,26 @@ func (x *tcpHandler) isInAllowList(ip net.IP) bool {
 }
 
 func (x *tcpHandler) Elapse(duration time.Duration, spouts *spout.Spouts) error {
+	x.elapsed += duration
+	tick := uint64(x.elapsed / time.Second)
+	delta := tick - x.lastTick
+
+	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
+		spouts.Log("expires: %v -> %v:%d")
+		return 0
+	})
+	defer x.flows.DelHook(id)
+
+	x.flows.Elapse(delta)
+
 	return nil
 }
 
 type pktLayers struct {
-	eth  *layers.Ethernet
-	ipv4 *layers.IPv4
-	tcp  *layers.TCP
+	eth     *layers.Ethernet
+	ipv4    *layers.IPv4
+	tcp     *layers.TCP
+	payload gopacket.Payload
 }
 
 func extractPktLayers(pkt gopacket.Packet) *pktLayers {
@@ -95,7 +145,9 @@ func extractPktLayers(pkt gopacket.Packet) *pktLayers {
 	var eth layers.Ethernet
 	var ip4 layers.IPv4
 	var tcp layers.TCP
-	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &tcp)
+	var payload gopacket.Payload
+
+	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &tcp, &payload)
 
 	var decoded []gopacket.LayerType
 	if err := parser.DecodeLayers(pkt.Data(), &decoded); err != nil {
@@ -112,6 +164,7 @@ func extractPktLayers(pkt gopacket.Packet) *pktLayers {
 			l.tcp = &tcp
 		}
 	}
+	l.payload = payload
 
 	if l.eth == nil || l.ipv4 == nil || l.tcp == nil {
 		return nil
@@ -159,4 +212,18 @@ func createSynAckPacket(l *pktLayers) ([]byte, error) {
 	}
 
 	return buffer.Bytes(), nil
+}
+
+func flowHash(nw gopacket.NetworkLayer, tp gopacket.TransportLayer) uint64 {
+	nwHash := nw.NetworkFlow().FastHash()
+	tpHash := tp.TransportFlow().FastHash()
+
+	b1, b2 := make([]byte, 8), make([]byte, 8)
+	binary.LittleEndian.PutUint64(b1, nwHash)
+	binary.LittleEndian.PutUint64(b2, tpHash)
+
+	hash := fnv.New64a()
+	_, _ = hash.Write(b1)
+	_, _ = hash.Write(b2)
+	return hash.Sum64()
 }
