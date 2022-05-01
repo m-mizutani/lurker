@@ -134,10 +134,9 @@ func (x *tcpHandler) Elapse(duration time.Duration, spouts *spout.Spouts) error 
 }
 
 type pktLayers struct {
-	eth     *layers.Ethernet
-	ipv4    *layers.IPv4
-	tcp     *layers.TCP
-	payload gopacket.Payload
+	eth  *layers.Ethernet
+	ipv4 *layers.IPv4
+	tcp  *layers.TCP
 }
 
 func extractPktLayers(pkt gopacket.Packet) *pktLayers {
@@ -164,7 +163,6 @@ func extractPktLayers(pkt gopacket.Packet) *pktLayers {
 			l.tcp = &tcp
 		}
 	}
-	l.payload = payload
 
 	if l.eth == nil || l.ipv4 == nil || l.tcp == nil {
 		return nil
