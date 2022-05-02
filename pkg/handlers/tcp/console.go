@@ -33,6 +33,7 @@ func outputConsole(out interfaces.ConsoleFunc, flow *tcpFlow) {
 			d := i + n
 			if i+n < len(flow.recvData) {
 				p := flow.recvData[d]
+
 				hex[n] = fmt.Sprintf("%02X", p)
 				if strconv.IsPrint(rune(p)) {
 					asc[n] = string(p)
@@ -40,7 +41,7 @@ func outputConsole(out interfaces.ConsoleFunc, flow *tcpFlow) {
 					asc[n] = "."
 				}
 
-				if strconv.IsGraphic(rune(p)) {
+				if strconv.IsGraphic(rune(p)) || rune(p) == '\n' || rune(p) == '\r' || rune(p) == '\t' {
 					graph[d] = rune(p)
 				} else {
 					graph[d] = '.'
