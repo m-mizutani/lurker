@@ -4,10 +4,10 @@ on:
   push:
 
 env:
-  TAG_NAME: ghaudit:${{ github.sha }}
-  GITHUB_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/ghaudit
-  GITHUB_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/ghaudit:${{ github.sha }}
-  GITHUB_IMAGE_LATEST: ghcr.io/${{ github.repository_owner }}/ghaudit:latest
+  TAG_NAME: lurker:${{ github.sha }}
+  GITHUB_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/lurker
+  GITHUB_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurker:${{ github.sha }}
+  GITHUB_IMAGE_LATEST: ghcr.io/${{ github.repository_owner }}/lurker:latest
 
 jobs:
   build:
