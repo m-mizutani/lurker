@@ -6,8 +6,8 @@ import (
 	"github.com/m-mizutani/lurker/pkg/infra"
 )
 
-type ConsoleFunc func(format string, args ...any) error
-type WritePacketFunc func([]byte) error
+type ConsoleFunc func(format string, args ...any)
+type WritePacketFunc func([]byte)
 
 type Spout struct {
 	Console     ConsoleFunc
@@ -16,9 +16,8 @@ type Spout struct {
 
 func NewSpout(clients *infra.Clients, options ...SpoutOption) *Spout {
 	output := &Spout{
-		Console: func(format string, args ...any) error {
+		Console: func(format string, args ...any) {
 			fmt.Println("Output:", fmt.Sprintf(format, args...))
-			return nil
 		},
 		WritePacket: clients.Device().WritePacket,
 	}

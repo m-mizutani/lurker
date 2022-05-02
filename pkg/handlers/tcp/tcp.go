@@ -88,9 +88,8 @@ func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *interfaces.Spout) error
 		if err != nil {
 			return err
 		}
-		if err := spouts.WritePacket(synAckPkt); err != nil {
-			return err
-		}
+
+		spouts.WritePacket(synAckPkt)
 
 	} else if flow := x.flows.Get(hv); flow != nil {
 		if dst.String() == flow.dstHost.String() && l.tcp.DstPort == layers.TCPPort(flow.dstPort) {

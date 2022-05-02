@@ -56,13 +56,11 @@ func TestHandleSynPacket(t *testing.T) {
 	handler := tcp.New()
 	var logOutput string
 	spouts := &interfaces.Spout{
-		Console: func(format string, args ...any) error {
+		Console: func(format string, args ...any) {
 			logOutput = fmt.Sprintf(format, args)
-			return nil
 		},
-		WritePacket: func(b []byte) error {
+		WritePacket: func(b []byte) {
 			calledWritePacket++
-			return nil
 		},
 	}
 
@@ -153,7 +151,7 @@ func TestHandleSynPacket(t *testing.T) {
 
 	assert.Empty(t, logOutput)
 	for i := 0; i < 5; i++ {
-		handler.Tick(spouts)
+		require.NoError(t, handler.Tick(spouts))
 	}
 	assert.NotEmpty(t, logOutput)
 }

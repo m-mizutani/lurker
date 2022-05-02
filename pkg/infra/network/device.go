@@ -7,11 +7,12 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/utils"
 )
 
 type Device interface {
 	ReadPacket() chan gopacket.Packet
-	WritePacket([]byte) error
+	WritePacket([]byte)
 	GetDeviceAddrs() ([]net.Addr, error)
 }
 
@@ -46,12 +47,10 @@ func (x *device) ReadPacket() chan gopacket.Packet {
 	return x.src.Packets()
 }
 
-func (x *device) WritePacket(pktData []byte) error {
+func (x *device) WritePacket(pktData []byte) {
 	if err := x.handle.WritePacketData(pktData); err != nil {
-		return goerr.Wrap(err, "fail to send ARP reply")
+		utils.HandleError(goerr.Wrap(err, "fail to send ARP reply"))
 	}
-
-	return nil
 }
 
 func (x *device) GetDeviceAddrs() ([]net.Addr, error) {
