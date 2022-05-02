@@ -22,29 +22,37 @@ func outputConsole(out interfaces.ConsoleFunc, flow *tcpFlow) {
 		state,
 	)
 
-	lines := []string{hdr}
+	lines := []string{hdr, toHex(flow.recvData)}
 
-	graph := make([]rune, len(flow.recvData))
-	for i := 0; i < len(flow.recvData); i += 16 {
+	if len(flow.recvData) > 0 {
+		graph := toGraph(flow.recvData)
+		lines = append(lines, []string{
+			"----------------------------------[dump]----------------------------------",
+			string(graph),
+			"--------------------------------------------------------------------------",
+			"",
+		}...)
+	}
+	out(strings.Join(lines, "\n"))
+}
+
+func toHex(data []byte) string {
+	lines := []string{}
+
+	for i := 0; i < len(data); i += 16 {
 		hex := make([]string, 16)
 		asc := make([]string, 16)
 
 		for n := 0; n < 16; n++ {
 			d := i + n
-			if i+n < len(flow.recvData) {
-				p := flow.recvData[d]
+			if i+n < len(data) {
+				p := data[d]
 
 				hex[n] = fmt.Sprintf("%02X", p)
 				if strconv.IsPrint(rune(p)) {
 					asc[n] = string(p)
 				} else {
 					asc[n] = "."
-				}
-
-				if strconv.IsGraphic(rune(p)) || rune(p) == '\n' || rune(p) == '\r' || rune(p) == '\t' {
-					graph[d] = rune(p)
-				} else {
-					graph[d] = '.'
 				}
 			} else {
 				hex[n] = "  "
@@ -56,13 +64,20 @@ func outputConsole(out interfaces.ConsoleFunc, flow *tcpFlow) {
 		))
 	}
 
-	if len(flow.recvData) > 0 {
-		lines = append(lines, []string{
-			"----------------------------------[dump]----------------------------------",
-			string(graph),
-			"--------------------------------------------------------------------------",
-			"",
-		}...)
+	return strings.Join(lines, "\n")
+}
+
+func toGraph(data []byte) string {
+	graph := make([]rune, len(data))
+	for d := 0; d < len(data); d++ {
+		p := data[d]
+
+		if strconv.IsGraphic(rune(p)) || rune(p) == '\n' || rune(p) == '\r' || rune(p) == '\t' {
+			graph[d] = rune(p)
+		} else {
+			graph[d] = '.'
+		}
 	}
-	out(strings.Join(lines, "\n"))
+
+	return string(graph)
 }

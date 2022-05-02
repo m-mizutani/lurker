@@ -31,3 +31,9 @@ func WithHandler(hdlr interfaces.Handler) Option {
 		uc.handlers = append(uc.handlers, hdlr)
 	}
 }
+
+func WithSpout(spout *interfaces.Spout) Option {
+	return func(uc *Usecase) {
+		uc.spouts = spout
+	}
+}

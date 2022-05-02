@@ -5,12 +5,12 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/domain/types"
 	"github.com/m-mizutani/ttlcache"
 )
 
@@ -22,6 +22,7 @@ type tcpHandler struct {
 }
 
 type tcpFlow struct {
+	createdAt        time.Time
 	srcHost, dstHost gopacket.Endpoint
 	srcPort, dstPort uint16
 
@@ -51,7 +52,7 @@ func WithAllowedNetwork(allowed net.IPNet) Option {
 	}
 }
 
-func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *interfaces.Spout) error {
+func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *interfaces.Spout) error {
 	l := extractPktLayers(pkt)
 	if l == nil {
 		return nil
@@ -75,10 +76,11 @@ func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *interfaces.Spout) error
 			return nil
 		}
 		flow := &tcpFlow{
-			srcHost: src,
-			dstHost: dst,
-			srcPort: uint16(l.tcp.SrcPort),
-			dstPort: uint16(l.tcp.DstPort),
+			createdAt: time.Now(),
+			srcHost:   src,
+			dstHost:   dst,
+			srcPort:   uint16(l.tcp.SrcPort),
+			dstPort:   uint16(l.tcp.DstPort),
 
 			baseSeq: l.tcp.Seq,
 			nextSeq: l.tcp.Seq + 1,
@@ -118,9 +120,10 @@ func (x *tcpHandler) isInAllowList(ip net.IP) bool {
 	return false
 }
 
-func (x *tcpHandler) Tick(spouts *interfaces.Spout) error {
+func (x *tcpHandler) Tick(ctx *types.Context, spouts *interfaces.Spout) error {
 	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
 		outputConsole(spouts.Console, flow)
+		outputSlack(ctx, spouts.Slack, flow)
 		return 0
 	})
 	defer x.flows.DelHook(id)
@@ -221,17 +224,4 @@ func flowHash(nw gopacket.NetworkLayer, tp gopacket.TransportLayer) uint64 {
 	_, _ = hash.Write(b1)
 	_, _ = hash.Write(b2)
 	return hash.Sum64()
-}
-
-func toPrintable(data []byte) string {
-	chars := make([]rune, len(data))
-	for i := range data {
-		r := rune(data[i])
-		if strconv.IsPrint(r) || r == rune('\n') || r == rune('\r') || r == rune('\t') {
-			chars[i] = r
-		} else {
-			chars[i] = rune('.')
-		}
-	}
-	return string(chars)
 }

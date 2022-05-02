@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/m-mizutani/lurker/pkg/domain/types"
 )
 
 func (x *Usecase) Loop() error {
@@ -23,15 +25,17 @@ mainLoop:
 				break mainLoop
 			}
 
+			ctx := types.NewContext()
 			for _, hdlr := range x.handlers {
-				if err := hdlr.Handle(pkt, x.spouts); err != nil {
+				if err := hdlr.Handle(ctx, pkt, x.spouts); err != nil {
 					return err
 				}
 			}
 
 		case <-ticker.C:
+			ctx := types.NewContext()
 			for _, hdlr := range x.handlers {
-				if err := hdlr.Tick(x.spouts); err != nil {
+				if err := hdlr.Tick(ctx, x.spouts); err != nil {
 					return err
 				}
 			}

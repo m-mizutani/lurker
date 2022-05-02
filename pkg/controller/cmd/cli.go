@@ -9,11 +9,13 @@ import (
 	"github.com/m-mizutani/lurker/pkg/infra"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
 	"github.com/m-mizutani/lurker/pkg/usecase"
+
 	"github.com/urfave/cli/v2"
 )
 
 type Config struct {
-	NetworkDevice string
+	NetworkDevice   string
+	SlackWebhookURL string
 }
 
 func Run(argv []string) error {
@@ -27,7 +29,14 @@ func Run(argv []string) error {
 				Aliases:     []string{"i"},
 				Usage:       "Monitoring network device name",
 				Destination: &cfg.NetworkDevice,
+				EnvVars:     []string{"LURKER_DEVICE"},
 				Required:    true,
+			},
+			&cli.StringFlag{
+				Name:        "slack-webhook-url",
+				Usage:       "Slack incoming webhook URL",
+				Destination: &cfg.SlackWebhookURL,
+				EnvVars:     []string{"LURKER_SLACK_WEBHOOK"},
 			},
 		},
 		Action: func(ctx *cli.Context) error {
@@ -58,8 +67,11 @@ func Run(argv []string) error {
 				}))
 			}
 
+			spout := configureSpout(&cfg, clients)
+
 			uc := usecase.New(clients,
 				usecase.WithHandler(tcp.New(tcpOptions...)),
+				usecase.WithSpout(spout),
 			)
 
 			if err := uc.Loop(); err != nil {
