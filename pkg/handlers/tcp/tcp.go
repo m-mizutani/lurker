@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/google/gopacket"
@@ -118,7 +119,7 @@ func (x *tcpHandler) isInAllowList(ip net.IP) bool {
 
 func (x *tcpHandler) Tick(spouts *interfaces.Spout) error {
 	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
-		spouts.Console("expires: %v -> %v:%d", flow.srcHost, flow.dstHost, flow.dstPort)
+		spouts.Console("expires: %v -> %v:%d, `%s`", flow.srcHost, flow.dstHost, flow.dstPort, toPrintable(flow.recvData))
 		return 0
 	})
 	defer x.flows.DelHook(id)
@@ -219,4 +220,17 @@ func flowHash(nw gopacket.NetworkLayer, tp gopacket.TransportLayer) uint64 {
 	_, _ = hash.Write(b1)
 	_, _ = hash.Write(b2)
 	return hash.Sum64()
+}
+
+func toPrintable(data []byte) string {
+	chars := make([]rune, len(data))
+	for i := range data {
+		r := rune(data[i])
+		if strconv.IsPrint(r) || r == rune('\n') || r == rune('\r') || r == rune('\t') {
+			chars[i] = r
+		} else {
+			chars[i] = rune('.')
+		}
+	}
+	return string(chars)
 }
