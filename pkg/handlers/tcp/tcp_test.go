@@ -5,14 +5,14 @@ import (
 	"math/rand"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/m-mizutani/lurker/pkg/service/handler/tcp"
-	"github.com/m-mizutani/lurker/pkg/service/spout"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 )
 
 func layersToPacket(t *testing.T, f func() []gopacket.SerializableLayer) gopacket.Packet {
@@ -55,8 +55,8 @@ func TestHandleSynPacket(t *testing.T) {
 	var calledWritePacket int
 	handler := tcp.New()
 	var logOutput string
-	spouts := &spout.Spouts{
-		Log: func(format string, args ...any) error {
+	spouts := &interfaces.Spout{
+		Console: func(format string, args ...any) error {
 			logOutput = fmt.Sprintf(format, args)
 			return nil
 		},
@@ -152,6 +152,8 @@ func TestHandleSynPacket(t *testing.T) {
 	}), spouts))
 
 	assert.Empty(t, logOutput)
-	handler.Elapse(5*time.Second, spouts)
+	for i := 0; i < 5; i++ {
+		handler.Tick(spouts)
+	}
 	assert.NotEmpty(t, logOutput)
 }

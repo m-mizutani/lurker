@@ -9,9 +9,8 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
 	"github.com/m-mizutani/ttlcache"
-
-	"github.com/m-mizutani/lurker/pkg/service/spout"
 )
 
 type tcpHandler struct {
@@ -50,7 +49,7 @@ func WithAllowedNetwork(allowed net.IPNet) Option {
 	}
 }
 
-func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *spout.Spouts) error {
+func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *interfaces.Spout) error {
 	l := extractPktLayers(pkt)
 	if l == nil {
 		return nil
@@ -117,18 +116,14 @@ func (x *tcpHandler) isInAllowList(ip net.IP) bool {
 	return false
 }
 
-func (x *tcpHandler) Elapse(duration time.Duration, spouts *spout.Spouts) error {
-	x.elapsed += duration
-	tick := uint64(x.elapsed / time.Second)
-	delta := tick - x.lastTick
-
+func (x *tcpHandler) Tick(spouts *interfaces.Spout) error {
 	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
-		spouts.Log("expires: %v -> %v:%d")
+		spouts.Console("expires: %v -> %v:%d", flow.srcHost, flow.dstHost, flow.dstPort)
 		return 0
 	})
 	defer x.flows.DelHook(id)
 
-	x.flows.Elapse(delta)
+	x.flows.Elapse(1)
 
 	return nil
 }
