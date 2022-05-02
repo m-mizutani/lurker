@@ -1,7 +1,6 @@
 package tcp_test
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"testing"
@@ -56,8 +55,8 @@ func TestHandleSynPacket(t *testing.T) {
 	handler := tcp.New()
 	var logOutput string
 	spouts := &interfaces.Spout{
-		Console: func(format string, args ...any) {
-			logOutput = fmt.Sprintf(format, args)
+		Console: func(msg string) {
+			logOutput = msg
 		},
 		WritePacket: func(b []byte) {
 			calledWritePacket++

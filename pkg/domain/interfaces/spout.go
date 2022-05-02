@@ -2,11 +2,12 @@ package interfaces
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/m-mizutani/lurker/pkg/infra"
 )
 
-type ConsoleFunc func(format string, args ...any)
+type ConsoleFunc func(msg string)
 type WritePacketFunc func([]byte)
 
 type Spout struct {
@@ -16,8 +17,8 @@ type Spout struct {
 
 func NewSpout(clients *infra.Clients, options ...SpoutOption) *Spout {
 	output := &Spout{
-		Console: func(format string, args ...any) {
-			fmt.Println("Output:", fmt.Sprintf(format, args...))
+		Console: func(msg string) {
+			fmt.Printf("[%s] %s\n", time.Now().Format("2006-01-02T15:04:05"), msg)
 		},
 		WritePacket: clients.Device().WritePacket,
 	}

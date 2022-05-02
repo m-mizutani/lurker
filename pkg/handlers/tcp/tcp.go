@@ -25,6 +25,7 @@ type tcpFlow struct {
 	srcHost, dstHost gopacket.Endpoint
 	srcPort, dstPort uint16
 
+	recvAck  bool
 	baseSeq  uint32
 	nextSeq  uint32
 	recvData []byte
@@ -94,6 +95,7 @@ func (x *tcpHandler) Handle(pkt gopacket.Packet, spouts *interfaces.Spout) error
 	} else if flow := x.flows.Get(hv); flow != nil {
 		if dst.String() == flow.dstHost.String() && l.tcp.DstPort == layers.TCPPort(flow.dstPort) {
 			if flow.nextSeq == l.tcp.Seq {
+				flow.recvAck = true
 				flow.recvData = append(flow.recvData, l.tcp.Payload...)
 				flow.nextSeq += uint32(len(l.tcp.Payload))
 			}
@@ -118,7 +120,7 @@ func (x *tcpHandler) isInAllowList(ip net.IP) bool {
 
 func (x *tcpHandler) Tick(spouts *interfaces.Spout) error {
 	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
-		spouts.Console("expires: %v -> %v:%d, `%s`", flow.srcHost, flow.dstHost, flow.dstPort, toPrintable(flow.recvData))
+		outputConsole(spouts.Console, flow)
 		return 0
 	})
 	defer x.flows.DelHook(id)
