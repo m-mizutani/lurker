@@ -18,7 +18,7 @@ type Spout struct {
 func NewSpout(clients *infra.Clients, options ...SpoutOption) *Spout {
 	output := &Spout{
 		Console: func(msg string) {
-			fmt.Printf("[%s] %s\n", time.Now().Format("2006-01-02T15:04:05"), msg)
+			fmt.Printf("[%s] %s\n", time.Now().Format("2006-01-02T15:04:05.000"), msg)
 		},
 		WritePacket: clients.Device().WritePacket,
 	}
