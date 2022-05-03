@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/domain/types"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 )
 
@@ -25,6 +26,8 @@ func layersToPacket(t *testing.T, f func() []gopacket.SerializableLayer) gopacke
 }
 
 func TestHandleSynPacket(t *testing.T) {
+	ctx := types.NewContext()
+
 	baseSeq := rand.Uint32()
 	synPkt := layersToPacket(t, func() []gopacket.SerializableLayer {
 		eth := &layers.Ethernet{
@@ -63,7 +66,7 @@ func TestHandleSynPacket(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, handler.Handle(synPkt, spouts))
+	require.NoError(t, handler.Handle(ctx, synPkt, spouts))
 
 	assert.Equal(t, 1, calledWritePacket)
 
@@ -94,11 +97,11 @@ func TestHandleSynPacket(t *testing.T) {
 		return []gopacket.SerializableLayer{eth, ipv4, tcp}
 	})
 
-	require.NoError(t, handler.Handle(ackPkt, spouts))
+	require.NoError(t, handler.Handle(ctx, ackPkt, spouts))
 	payload1 := []byte("not ")
 	payload2 := []byte("sane")
 
-	require.NoError(t, handler.Handle(layersToPacket(t, func() []gopacket.SerializableLayer {
+	require.NoError(t, handler.Handle(ctx, layersToPacket(t, func() []gopacket.SerializableLayer {
 		eth := &layers.Ethernet{
 			SrcMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
 			DstMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
@@ -123,7 +126,7 @@ func TestHandleSynPacket(t *testing.T) {
 		return []gopacket.SerializableLayer{eth, ipv4, tcp, payload}
 	}), spouts))
 
-	require.NoError(t, handler.Handle(layersToPacket(t, func() []gopacket.SerializableLayer {
+	require.NoError(t, handler.Handle(ctx, layersToPacket(t, func() []gopacket.SerializableLayer {
 		eth := &layers.Ethernet{
 			SrcMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
 			DstMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
@@ -150,7 +153,7 @@ func TestHandleSynPacket(t *testing.T) {
 
 	assert.Empty(t, logOutput)
 	for i := 0; i < 5; i++ {
-		require.NoError(t, handler.Tick(spouts))
+		require.NoError(t, handler.Tick(ctx, spouts))
 	}
 	assert.NotEmpty(t, logOutput)
 }
