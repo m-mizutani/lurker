@@ -124,6 +124,7 @@ func (x *tcpHandler) Tick(ctx *types.Context, spouts *interfaces.Spout) error {
 	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
 		outputConsole(spouts.Console, flow)
 		outputSlack(ctx, spouts.Slack, flow)
+		outputBigQuery(ctx, spouts.InsertTcpData, flow)
 		return 0
 	})
 	defer x.flows.DelHook(id)

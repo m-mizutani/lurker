@@ -14,8 +14,10 @@ import (
 )
 
 type Config struct {
-	NetworkDevice   string
-	SlackWebhookURL string
+	NetworkDevice     string
+	SlackWebhookURL   string
+	BigQueryProjectID string
+	BigQueryDataset   string
 }
 
 func Run(argv []string) error {
@@ -37,6 +39,18 @@ func Run(argv []string) error {
 				Usage:       "Slack incoming webhook URL",
 				Destination: &cfg.SlackWebhookURL,
 				EnvVars:     []string{"LURKER_SLACK_WEBHOOK"},
+			},
+			&cli.StringFlag{
+				Name:        "bigquery-project-id",
+				Usage:       "BigQuery Project ID",
+				Destination: &cfg.BigQueryProjectID,
+				EnvVars:     []string{"LURKER_BIGQUERY_PROJECT_ID"},
+			},
+			&cli.StringFlag{
+				Name:        "bigquery-dataset",
+				Usage:       "BigQuery Dataset name",
+				Destination: &cfg.BigQueryDataset,
+				EnvVars:     []string{"LURKER_BIGQUERY_DATASET"},
 			},
 		},
 		Action: func(ctx *cli.Context) error {
@@ -67,7 +81,10 @@ func Run(argv []string) error {
 				}))
 			}
 
-			spout := configureSpout(&cfg, clients)
+			spout, err := configureSpout(&cfg, clients)
+			if err != nil {
+				return err
+			}
 
 			uc := usecase.New(clients,
 				usecase.WithHandler(tcp.New(tcpOptions...)),
