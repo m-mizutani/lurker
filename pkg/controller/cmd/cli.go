@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/m-mizutani/goerr"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
@@ -14,7 +13,9 @@ import (
 )
 
 type Config struct {
-	NetworkDevice     string
+	NetworkDevice string
+	ListenAddrs   cli.StringSlice
+
 	SlackWebhookURL   string
 	BigQueryProjectID string
 	BigQueryDataset   string
@@ -34,6 +35,15 @@ func Run(argv []string) error {
 				EnvVars:     []string{"LURKER_DEVICE"},
 				Required:    true,
 			},
+			&cli.StringSliceFlag{
+				Name:        "network",
+				Usage:       "Listen network (CIDR format), default is device address",
+				Aliases:     []string{"n"},
+				Destination: &cfg.ListenAddrs,
+				EnvVars:     []string{"LURKER_NETWORK"},
+			},
+
+			// spout options
 			&cli.StringFlag{
 				Name:        "slack-webhook-url",
 				Usage:       "Slack incoming webhook URL",
@@ -62,23 +72,12 @@ func Run(argv []string) error {
 			clients := infra.New(infra.WithNetworkDevice(dev))
 
 			var tcpOptions []tcp.Option
-			addrs, err := dev.GetDeviceAddrs()
+			addrs, err := configureAddrs(&cfg, dev)
 			if err != nil {
 				return err
 			}
-			for _, addr := range addrs {
-				ip, _, err := net.ParseCIDR(addr.String())
-				if err != nil {
-					return goerr.Wrap(err)
-				}
-				if ip.To4() == nil {
-					continue
-				}
-
-				tcpOptions = append(tcpOptions, tcp.WithAllowedNetwork(net.IPNet{
-					IP:   ip,
-					Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
-				}))
+			for _, ipNet := range addrs {
+				tcpOptions = append(tcpOptions, tcp.WithAllowedNetwork(ipNet))
 			}
 
 			spout, err := configureSpout(&cfg, clients)

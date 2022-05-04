@@ -15,7 +15,7 @@ import (
 )
 
 type tcpHandler struct {
-	allowList []net.IPNet
+	allowList []*net.IPNet
 	flows     *ttlcache.CacheTable[uint64, *tcpFlow]
 	elapsed   time.Duration
 	lastTick  uint64
@@ -46,7 +46,7 @@ func New(optins ...Option) *tcpHandler {
 
 type Option func(hdlr *tcpHandler)
 
-func WithAllowedNetwork(allowed net.IPNet) Option {
+func WithAllowedNetwork(allowed *net.IPNet) Option {
 	return func(hdlr *tcpHandler) {
 		hdlr.allowList = append(hdlr.allowList, allowed)
 	}
