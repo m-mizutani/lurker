@@ -36,4 +36,12 @@ func TestBigQueryClient(t *testing.T) {
 		Payload:   "GET",
 		RawData:   []byte("GET"),
 	}))
+
+	require.NoError(t, client.InsertTcpData(ctx, &model.SchemaTcpData{
+		CreatedAt: time.Now(),
+		SrcHost:   "192.168.0.2",
+		SrcPort:   12345,
+		DstHost:   "10.0.0.2",
+		DstPort:   4321,
+	}))
 }

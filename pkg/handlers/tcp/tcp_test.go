@@ -7,10 +7,12 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/domain/model"
 	"github.com/m-mizutani/lurker/pkg/domain/types"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 )
@@ -64,6 +66,9 @@ func TestHandleSynPacket(t *testing.T) {
 		WritePacket: func(b []byte) {
 			calledWritePacket++
 		},
+		Slack:         func(ctx *types.Context, msg *slack.WebhookMessage) {},
+		SavePcapData:  func(p []gopacket.Packet) {},
+		InsertTcpData: func(ctx *types.Context, data *model.SchemaTcpData) {},
 	}
 
 	require.NoError(t, handler.Handle(ctx, synPkt, spouts))

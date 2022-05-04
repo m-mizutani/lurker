@@ -12,5 +12,5 @@ type SchemaTcpData struct {
 	ACKed     bool
 
 	Payload string
-	RawData []byte
+	RawData []byte `bigquery:",nullable"`
 }
