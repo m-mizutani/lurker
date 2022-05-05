@@ -47,7 +47,7 @@ func Run(argv []string) error {
 				Name:    "exclude-ports",
 				Usage:   "Exclude port numbers",
 				Aliases: []string{"e"},
-				EnvVars: []string{"LURKER_NETWORK"},
+				EnvVars: []string{"LURKER_EXCLUDE_PORTS"},
 			},
 
 			// spout options
