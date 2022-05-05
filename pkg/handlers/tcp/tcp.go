@@ -15,10 +15,12 @@ import (
 )
 
 type tcpHandler struct {
-	allowList []*net.IPNet
-	flows     *ttlcache.CacheTable[uint64, *tcpFlow]
-	elapsed   time.Duration
-	lastTick  uint64
+	allowList    []*net.IPNet
+	excludePorts map[int16]bool
+
+	flows    *ttlcache.CacheTable[uint64, *tcpFlow]
+	elapsed  time.Duration
+	lastTick uint64
 }
 
 type tcpFlow struct {
@@ -34,6 +36,8 @@ type tcpFlow struct {
 
 func New(optins ...Option) *tcpHandler {
 	hdlr := &tcpHandler{
+		excludePorts: make(map[int16]bool),
+
 		flows: ttlcache.New[uint64, *tcpFlow](),
 	}
 
@@ -49,6 +53,14 @@ type Option func(hdlr *tcpHandler)
 func WithAllowedNetwork(allowed *net.IPNet) Option {
 	return func(hdlr *tcpHandler) {
 		hdlr.allowList = append(hdlr.allowList, allowed)
+	}
+}
+
+func WithExcludePorts(ports []int) Option {
+	return func(hdlr *tcpHandler) {
+		for _, port := range ports {
+			hdlr.excludePorts[int16(port)] = true
+		}
 	}
 }
 
@@ -75,6 +87,10 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 		if !x.isInAllowList(net.IP(dst.Raw())) {
 			return nil
 		}
+		if x.excludePorts[int16(l.tcp.DstPort)] {
+			return nil
+		}
+
 		flow := &tcpFlow{
 			createdAt: time.Now(),
 			srcHost:   src,

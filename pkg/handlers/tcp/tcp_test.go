@@ -162,3 +162,68 @@ func TestHandleSynPacket(t *testing.T) {
 	}
 	assert.NotEmpty(t, logOutput)
 }
+
+func TestExcludePort(t *testing.T) {
+	baseSeq := rand.Uint32()
+	pkt1 := layersToPacket(t, func() []gopacket.SerializableLayer {
+		eth := &layers.Ethernet{
+			SrcMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
+			DstMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
+			EthernetType: layers.EthernetTypeIPv4,
+		}
+		ipv4 := &layers.IPv4{
+			Version:  4,
+			TTL:      64,
+			Protocol: layers.IPProtocolTCP,
+			SrcIP:    net.ParseIP("10.1.2.3"),
+			DstIP:    net.ParseIP("192.168.1.2"),
+		}
+		tcp := &layers.TCP{
+			SrcPort: 54321,
+			DstPort: 5555,
+			Ack:     0,
+			Seq:     baseSeq,
+			SYN:     true,
+			Window:  65535,
+		}
+		require.NoError(t, tcp.SetNetworkLayerForChecksum(ipv4))
+		return []gopacket.SerializableLayer{eth, ipv4, tcp}
+	})
+
+	pkt2 := layersToPacket(t, func() []gopacket.SerializableLayer {
+		eth := &layers.Ethernet{
+			SrcMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
+			DstMAC:       []byte{0x12, 0x12, 0x12, 0x12, 0x12, 0x12},
+			EthernetType: layers.EthernetTypeIPv4,
+		}
+		ipv4 := &layers.IPv4{
+			Version:  4,
+			TTL:      64,
+			Protocol: layers.IPProtocolTCP,
+			SrcIP:    net.ParseIP("10.1.2.3"),
+			DstIP:    net.ParseIP("192.168.1.2"),
+		}
+		tcp := &layers.TCP{
+			SrcPort: 54321,
+			DstPort: 1111,
+			Ack:     0,
+			Seq:     baseSeq,
+			SYN:     true,
+			Window:  65535,
+		}
+		require.NoError(t, tcp.SetNetworkLayerForChecksum(ipv4))
+		return []gopacket.SerializableLayer{eth, ipv4, tcp}
+	})
+
+	handler := tcp.New(tcp.WithExcludePorts([]int{5555}))
+	spout := interfaces.NewSpout(nil)
+	var called int
+	spout.WritePacket = func(b []byte) { called++ }
+
+	ctx := types.NewContext()
+	handler.Handle(ctx, pkt1, spout)
+	assert.Equal(t, 0, called)
+
+	handler.Handle(ctx, pkt2, spout)
+	assert.Equal(t, 1, called)
+}

@@ -4,11 +4,12 @@ import (
 	"net"
 
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
 )
 
-func configureAddrs(cfg *Config, dev network.Device) ([]*net.IPNet, error) {
-	var resp []*net.IPNet
+func configureAddrs(cfg *Config, dev network.Device) ([]tcp.Option, error) {
+	var resp []tcp.Option
 
 	addrs := cfg.ListenAddrs.Value()
 	if len(addrs) == 0 {
@@ -25,10 +26,10 @@ func configureAddrs(cfg *Config, dev network.Device) ([]*net.IPNet, error) {
 				continue
 			}
 
-			resp = append(resp, &net.IPNet{
+			resp = append(resp, tcp.WithAllowedNetwork(&net.IPNet{
 				IP:   ip,
 				Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
-			})
+			}))
 		}
 	} else {
 		for _, addr := range addrs {
@@ -37,7 +38,7 @@ func configureAddrs(cfg *Config, dev network.Device) ([]*net.IPNet, error) {
 				return nil, goerr.Wrap(err)
 			}
 
-			resp = append(resp, ipNet)
+			resp = append(resp, tcp.WithAllowedNetwork(ipNet))
 		}
 
 	}

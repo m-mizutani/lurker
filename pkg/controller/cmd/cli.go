@@ -15,6 +15,7 @@ import (
 type Config struct {
 	NetworkDevice string
 	ListenAddrs   cli.StringSlice
+	ExcludePorts  cli.IntSlice
 
 	SlackWebhookURL   string
 	BigQueryProjectID string
@@ -41,6 +42,12 @@ func Run(argv []string) error {
 				Aliases:     []string{"n"},
 				Destination: &cfg.ListenAddrs,
 				EnvVars:     []string{"LURKER_NETWORK"},
+			},
+			&cli.IntSliceFlag{
+				Name:    "exclude-ports",
+				Usage:   "Exclude port numbers",
+				Aliases: []string{"e"},
+				EnvVars: []string{"LURKER_NETWORK"},
 			},
 
 			// spout options
@@ -72,13 +79,17 @@ func Run(argv []string) error {
 			clients := infra.New(infra.WithNetworkDevice(dev))
 
 			var tcpOptions []tcp.Option
-			addrs, err := configureAddrs(&cfg, dev)
+			addrOptions, err := configureAddrs(&cfg, dev)
 			if err != nil {
 				return err
 			}
-			for _, ipNet := range addrs {
-				tcpOptions = append(tcpOptions, tcp.WithAllowedNetwork(ipNet))
+			tcpOptions = append(tcpOptions, addrOptions...)
+
+			portOptions, err := configureExcludePorts(ctx.IntSlice("exclude-ports"))
+			if err != nil {
+				return err
 			}
+			tcpOptions = append(tcpOptions, portOptions...)
 
 			spout, err := configureSpout(&cfg, clients)
 			if err != nil {

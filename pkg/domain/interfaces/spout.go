@@ -26,11 +26,16 @@ type Spout struct {
 }
 
 func NewSpout(clients *infra.Clients, options ...SpoutOption) *Spout {
+	writePacket := func([]byte) {}
+	if clients != nil {
+		writePacket = clients.Device().WritePacket
+	}
+
 	output := &Spout{
 		Console: func(msg string) {
 			fmt.Printf("[%s] %s\n", time.Now().Format("2006-01-02T15:04:05.000"), msg)
 		},
-		WritePacket:   clients.Device().WritePacket,
+		WritePacket:   writePacket,
 		SavePcapData:  func(p []gopacket.Packet) {},
 		Slack:         func(ctx *types.Context, msg *slack.WebhookMessage) {},
 		InsertTcpData: func(ctx *types.Context, data *model.SchemaTcpData) {},
