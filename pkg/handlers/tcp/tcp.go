@@ -84,7 +84,7 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 	}
 
 	if l.tcp.SYN && !l.tcp.ACK {
-		if !x.isInnetworks(net.IP(dst.Raw())) {
+		if !x.isTarget(net.IP(dst.Raw())) {
 			return nil
 		}
 		if x.excludePorts[int16(l.tcp.DstPort)] {
@@ -123,7 +123,7 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 	return nil
 }
 
-func (x *tcpHandler) isInnetworks(ip net.IP) bool {
+func (x *tcpHandler) isTarget(ip net.IP) bool {
 	if x.networks == nil {
 		return true
 	}
