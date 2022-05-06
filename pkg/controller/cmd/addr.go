@@ -8,8 +8,8 @@ import (
 	"github.com/m-mizutani/lurker/pkg/infra/network"
 )
 
-func configureAddrs(cfg *Config, dev network.Device) ([]tcp.Option, error) {
-	var resp []tcp.Option
+func configureAddrs(cfg *Config, dev network.Device) ([]*net.IPNet, error) {
+	var resp []*net.IPNet
 
 	addrs := cfg.ListenAddrs.Value()
 	if len(addrs) == 0 {
@@ -26,10 +26,10 @@ func configureAddrs(cfg *Config, dev network.Device) ([]tcp.Option, error) {
 				continue
 			}
 
-			resp = append(resp, tcp.WithAllowedNetwork(&net.IPNet{
+			resp = append(resp, &net.IPNet{
 				IP:   ip,
 				Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
-			}))
+			})
 		}
 	} else {
 		for _, addr := range addrs {
@@ -38,10 +38,27 @@ func configureAddrs(cfg *Config, dev network.Device) ([]tcp.Option, error) {
 				return nil, goerr.Wrap(err)
 			}
 
-			resp = append(resp, tcp.WithAllowedNetwork(ipNet))
+			resp = append(resp, ipNet)
 		}
 
 	}
 
 	return resp, nil
+}
+
+func addrToTcpOption(ipNets []*net.IPNet) []tcp.Option {
+	resp := make([]tcp.Option, len(ipNets))
+	for i := range ipNets {
+		resp[i] = tcp.WithNetwork(ipNets[i])
+	}
+	return resp
+}
+
+func lookupHWAddr(devName string) (net.HardwareAddr, error) {
+	dev, err := net.InterfaceByName(devName)
+	if err != nil {
+		return nil, goerr.Wrap(err)
+	}
+
+	return dev.HardwareAddr, nil
 }

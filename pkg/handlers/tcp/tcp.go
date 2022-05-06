@@ -15,7 +15,7 @@ import (
 )
 
 type tcpHandler struct {
-	allowList    []*net.IPNet
+	networks     []*net.IPNet
 	excludePorts map[int16]bool
 
 	flows    *ttlcache.CacheTable[uint64, *tcpFlow]
@@ -50,9 +50,9 @@ func New(optins ...Option) *tcpHandler {
 
 type Option func(hdlr *tcpHandler)
 
-func WithAllowedNetwork(allowed *net.IPNet) Option {
+func WithNetwork(allowed *net.IPNet) Option {
 	return func(hdlr *tcpHandler) {
-		hdlr.allowList = append(hdlr.allowList, allowed)
+		hdlr.networks = append(hdlr.networks, allowed)
 	}
 }
 
@@ -84,7 +84,7 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 	}
 
 	if l.tcp.SYN && !l.tcp.ACK {
-		if !x.isInAllowList(net.IP(dst.Raw())) {
+		if !x.isInnetworks(net.IP(dst.Raw())) {
 			return nil
 		}
 		if x.excludePorts[int16(l.tcp.DstPort)] {
@@ -123,12 +123,12 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 	return nil
 }
 
-func (x *tcpHandler) isInAllowList(ip net.IP) bool {
-	if x.allowList == nil {
+func (x *tcpHandler) isInnetworks(ip net.IP) bool {
+	if x.networks == nil {
 		return true
 	}
 
-	for _, nw := range x.allowList {
+	for _, nw := range x.networks {
 		if nw.Contains(ip) {
 			return true
 		}

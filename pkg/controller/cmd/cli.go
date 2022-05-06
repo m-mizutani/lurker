@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/handlers/arp"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 	"github.com/m-mizutani/lurker/pkg/infra"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
@@ -16,6 +17,7 @@ type Config struct {
 	NetworkDevice string
 	ListenAddrs   cli.StringSlice
 	ExcludePorts  cli.IntSlice
+	ArpSpoof      bool
 
 	SlackWebhookURL   string
 	BigQueryProjectID string
@@ -49,6 +51,13 @@ func Run(argv []string) error {
 				Aliases: []string{"e"},
 				EnvVars: []string{"LURKER_EXCLUDE_PORTS"},
 			},
+			&cli.BoolFlag{
+				Name:        "arp-spoof",
+				Usage:       "Enable ARP spoofing",
+				Destination: &cfg.ArpSpoof,
+				Aliases:     []string{"a"},
+				EnvVars:     []string{"LURKER_ARP_SPOOF"},
+			},
 
 			// spout options
 			&cli.StringFlag{
@@ -76,30 +85,44 @@ func Run(argv []string) error {
 				return goerr.Wrap(err, "failed to configure network device").With("device", cfg.NetworkDevice)
 			}
 
-			clients := infra.New(infra.WithNetworkDevice(dev))
-
-			var tcpOptions []tcp.Option
-			addrOptions, err := configureAddrs(&cfg, dev)
+			targetAddrs, err := configureAddrs(&cfg, dev)
 			if err != nil {
 				return err
 			}
-			tcpOptions = append(tcpOptions, addrOptions...)
+			deviceAddr, err := lookupHWAddr(cfg.NetworkDevice)
+			if err != nil {
+				return err
+			}
+
+			// creating infra clients
+			clients := infra.New(infra.WithNetworkDevice(dev))
+
+			// configure spout
+			spout, err := configureSpout(&cfg, clients)
+			if err != nil {
+				return err
+			}
+
+			// configure usecase options
+			ucOpts := []usecase.Option{
+				usecase.WithSpout(spout),
+			}
+
+			var tcpOptions []tcp.Option
+			tcpOptions = append(tcpOptions, addrToTcpOption(targetAddrs)...)
 
 			portOptions, err := configureExcludePorts(ctx.IntSlice("exclude-ports"))
 			if err != nil {
 				return err
 			}
 			tcpOptions = append(tcpOptions, portOptions...)
+			ucOpts = append(ucOpts, usecase.WithHandler(tcp.New(tcpOptions...)))
 
-			spout, err := configureSpout(&cfg, clients)
-			if err != nil {
-				return err
+			if cfg.ArpSpoof {
+				ucOpts = append(ucOpts, usecase.WithHandler(arp.New(deviceAddr, targetAddrs)))
 			}
 
-			uc := usecase.New(clients,
-				usecase.WithHandler(tcp.New(tcpOptions...)),
-				usecase.WithSpout(spout),
-			)
+			uc := usecase.New(clients, ucOpts...)
 
 			if err := uc.Loop(); err != nil {
 				return err
