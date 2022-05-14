@@ -3,6 +3,7 @@ module github.com/m-mizutani/lurker
 require (
 	cloud.google.com/go/bigquery v1.31.0
 	github.com/google/gopacket v1.1.19
+	github.com/google/uuid v1.3.0
 	github.com/m-mizutani/goerr v0.1.6
 	github.com/m-mizutani/ttlcache v0.0.0-20220501005231-83c6fbc1d753
 	github.com/slack-go/slack v0.10.3
@@ -20,7 +21,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
