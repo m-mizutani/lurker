@@ -10,45 +10,53 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/domain/model"
 	"github.com/m-mizutani/lurker/pkg/domain/types"
 	"github.com/m-mizutani/ttlcache"
 )
 
 type tcpHandler struct {
+	device   interfaces.Device
+	emitters interfaces.Emitters
+
 	networks     []*net.IPNet
 	excludePorts map[int16]bool
 
-	flows    *ttlcache.CacheTable[uint64, *tcpFlow]
+	flows    *ttlcache.CacheTable[uint64, *model.TCPFlow]
 	elapsed  time.Duration
 	lastTick uint64
 }
 
-type tcpFlow struct {
-	createdAt        time.Time
-	srcHost, dstHost gopacket.Endpoint
-	srcPort, dstPort uint16
-
-	recvAck  bool
-	baseSeq  uint32
-	nextSeq  uint32
-	recvData []byte
-}
-
-func New(optins ...Option) *tcpHandler {
+func New(dev interfaces.Device, options ...Option) *tcpHandler {
 	hdlr := &tcpHandler{
+		device:       dev,
 		excludePorts: make(map[int16]bool),
-
-		flows: ttlcache.New[uint64, *tcpFlow](),
+		flows:        ttlcache.New[uint64, *model.TCPFlow](),
 	}
 
-	for _, opt := range optins {
+	for _, opt := range options {
 		opt(hdlr)
 	}
+
+	_ = hdlr.flows.SetHook(func(flow *model.TCPFlow) uint64 {
+		ctx := types.NewContext()
+		if err := hdlr.emitters.Emit(ctx, flow); err != nil {
+
+		}
+
+		return 0
+	})
 
 	return hdlr
 }
 
 type Option func(hdlr *tcpHandler)
+
+func WithEmitters(emitters interfaces.Emitters) Option {
+	return func(hdlr *tcpHandler) {
+		hdlr.emitters = emitters
+	}
+}
 
 func WithNetwork(allowed *net.IPNet) Option {
 	return func(hdlr *tcpHandler) {
@@ -64,7 +72,7 @@ func WithExcludePorts(ports []int) Option {
 	}
 }
 
-func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *interfaces.Spout) error {
+func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet) error {
 	l := extractPktLayers(pkt)
 	if l == nil {
 		return nil
@@ -91,15 +99,15 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 			return nil
 		}
 
-		flow := &tcpFlow{
-			createdAt: time.Now(),
-			srcHost:   src,
-			dstHost:   dst,
-			srcPort:   uint16(l.tcp.SrcPort),
-			dstPort:   uint16(l.tcp.DstPort),
+		flow := &model.TCPFlow{
+			CreatedAt: time.Now(),
+			SrcHost:   src,
+			DstHost:   dst,
+			SrcPort:   uint16(l.tcp.SrcPort),
+			DstPort:   uint16(l.tcp.DstPort),
 
-			baseSeq: l.tcp.Seq,
-			nextSeq: l.tcp.Seq + 1,
+			BaseSeq: l.tcp.Seq,
+			NextSeq: l.tcp.Seq + 1,
 		}
 		x.flows.Set(hv, flow, 5)
 
@@ -108,14 +116,14 @@ func (x *tcpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 			return err
 		}
 
-		spouts.WritePacket(synAckPkt)
+		x.device.WritePacket(synAckPkt)
 
 	} else if flow := x.flows.Get(hv); flow != nil {
-		if dst.String() == flow.dstHost.String() && l.tcp.DstPort == layers.TCPPort(flow.dstPort) {
-			if flow.nextSeq == l.tcp.Seq {
-				flow.recvAck = true
-				flow.recvData = append(flow.recvData, l.tcp.Payload...)
-				flow.nextSeq += uint32(len(l.tcp.Payload))
+		if dst.String() == flow.DstHost.String() && l.tcp.DstPort == layers.TCPPort(flow.DstPort) {
+			if flow.NextSeq == l.tcp.Seq {
+				flow.RecvAck = true
+				flow.RecvData = append(flow.RecvData, l.tcp.Payload...)
+				flow.NextSeq += uint32(len(l.tcp.Payload))
 			}
 		}
 	}
@@ -136,17 +144,8 @@ func (x *tcpHandler) isTarget(ip net.IP) bool {
 	return false
 }
 
-func (x *tcpHandler) Tick(ctx *types.Context, spouts *interfaces.Spout) error {
-	id := x.flows.SetHook(func(flow *tcpFlow) uint64 {
-		outputConsole(spouts.Console, flow)
-		outputSlack(ctx, spouts.Slack, flow)
-		outputBigQuery(ctx, spouts.InsertTcpData, flow)
-		return 0
-	})
-	defer x.flows.DelHook(id)
-
+func (x *tcpHandler) Tick(ctx *types.Context) error {
 	x.flows.Elapse(1)
-
 	return nil
 }
 

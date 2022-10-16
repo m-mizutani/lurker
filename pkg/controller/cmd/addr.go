@@ -4,11 +4,11 @@ import (
 	"net"
 
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
-	"github.com/m-mizutani/lurker/pkg/infra/network"
 )
 
-func configureAddrs(cfg *Config, dev network.Device) ([]*net.IPNet, error) {
+func configureAddrs(cfg *Config, dev interfaces.Device) ([]*net.IPNet, error) {
 	var resp []*net.IPNet
 
 	addrs := cfg.ListenAddrs.Value()

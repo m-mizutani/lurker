@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
+	"github.com/m-mizutani/lurker/pkg/emitters/bq"
+	"github.com/m-mizutani/lurker/pkg/emitters/slack"
 	"github.com/m-mizutani/lurker/pkg/handlers/arp"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
-	"github.com/m-mizutani/lurker/pkg/infra"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
-	"github.com/m-mizutani/lurker/pkg/usecase"
 
 	"github.com/urfave/cli/v2"
 )
@@ -59,7 +60,7 @@ func Run(argv []string) error {
 				EnvVars:     []string{"LURKER_ARP_SPOOF"},
 			},
 
-			// spout options
+			// output options
 			&cli.StringFlag{
 				Name:        "slack-webhook-url",
 				Usage:       "Slack incoming webhook URL",
@@ -85,46 +86,57 @@ func Run(argv []string) error {
 				return goerr.Wrap(err, "failed to configure network device").With("device", cfg.NetworkDevice)
 			}
 
+			var tcpOptions []tcp.Option
+
 			targetAddrs, err := configureAddrs(&cfg, dev)
 			if err != nil {
 				return err
 			}
+			tcpOptions = append(tcpOptions, addrToTcpOption(targetAddrs)...)
+
 			deviceAddr, err := lookupHWAddr(cfg.NetworkDevice)
 			if err != nil {
 				return err
 			}
 
-			// creating infra clients
-			clients := infra.New(infra.WithNetworkDevice(dev))
+			{
+				var emitters interfaces.Emitters
+				if cfg.BigQueryProjectID != "" || cfg.BigQueryDataset != "" {
+					if cfg.BigQueryProjectID == "" || cfg.BigQueryDataset == "" {
+						return goerr.New("both of bigquery-project-id and bigquery-dataset are required")
+					}
 
-			// configure spout
-			spout, err := configureSpout(&cfg, clients)
-			if err != nil {
-				return err
+					emitter, err := bq.New(cfg.BigQueryProjectID, cfg.BigQueryDataset)
+					if err != nil {
+						return err
+					}
+					emitters = append(emitters, emitter)
+				}
+
+				if cfg.SlackWebhookURL != "" {
+					emitters = append(emitters, slack.New(cfg.SlackWebhookURL))
+				}
+
+				tcpOptions = append(tcpOptions, tcp.WithEmitters(emitters))
 			}
 
-			// configure usecase options
-			ucOpts := []usecase.Option{
-				usecase.WithSpout(spout),
+			{
+				portOptions, err := configureExcludePorts(ctx.IntSlice("exclude-ports"))
+				if err != nil {
+					return err
+				}
+				tcpOptions = append(tcpOptions, portOptions...)
 			}
 
-			var tcpOptions []tcp.Option
-			tcpOptions = append(tcpOptions, addrToTcpOption(targetAddrs)...)
-
-			portOptions, err := configureExcludePorts(ctx.IntSlice("exclude-ports"))
-			if err != nil {
-				return err
+			handlers := []interfaces.Handler{
+				tcp.New(dev, tcpOptions...),
 			}
-			tcpOptions = append(tcpOptions, portOptions...)
-			ucOpts = append(ucOpts, usecase.WithHandler(tcp.New(tcpOptions...)))
 
 			if cfg.ArpSpoof {
-				ucOpts = append(ucOpts, usecase.WithHandler(arp.New(deviceAddr, targetAddrs)))
+				handlers = append(handlers, arp.New(dev, deviceAddr, targetAddrs))
 			}
 
-			uc := usecase.New(clients, ucOpts...)
-
-			if err := uc.Loop(); err != nil {
+			if err := loop(dev, handlers); err != nil {
 				return err
 			}
 

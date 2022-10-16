@@ -5,6 +5,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.3.0
 	github.com/m-mizutani/goerr v0.1.6
+	github.com/m-mizutani/gots v0.0.0-20221001005148-0f712425c01d
 	github.com/m-mizutani/ttlcache v0.0.0-20220501005231-83c6fbc1d753
 	github.com/slack-go/slack v0.10.3
 	github.com/stretchr/testify v1.7.1

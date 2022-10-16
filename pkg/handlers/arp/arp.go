@@ -13,16 +13,18 @@ import (
 type arpHandler struct {
 	networks   []*net.IPNet
 	deviceAddr net.HardwareAddr
+	device     interfaces.Device
 }
 
-func New(addr net.HardwareAddr, networks []*net.IPNet) *arpHandler {
+func New(device interfaces.Device, addr net.HardwareAddr, networks []*net.IPNet) *arpHandler {
 	return &arpHandler{
 		networks:   networks,
 		deviceAddr: addr,
+		device:     device,
 	}
 }
 
-func (x *arpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *interfaces.Spout) error {
+func (x *arpHandler) Handle(ctx *types.Context, pkt gopacket.Packet) error {
 	l := extractPktLayers(pkt)
 	if l == nil {
 		return nil
@@ -41,12 +43,12 @@ func (x *arpHandler) Handle(ctx *types.Context, pkt gopacket.Packet, spouts *int
 		return err
 	}
 
-	spouts.WritePacket(reply)
+	x.device.WritePacket(reply)
 
 	return nil
 }
 
-func (x *arpHandler) Tick(ctx *types.Context, spouts *interfaces.Spout) error {
+func (x *arpHandler) Tick(ctx *types.Context) error {
 	return nil
 }
 

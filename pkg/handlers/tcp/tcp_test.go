@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,6 +24,36 @@ func layersToPacket(t *testing.T, f func() []gopacket.SerializableLayer) gopacke
 
 	require.NoError(t, gopacket.SerializeLayers(buffer, options, pktLayers...))
 	return gopacket.NewPacket(buffer.Bytes(), layers.LayerTypeEthernet, gopacket.Default)
+}
+
+type mockEmitter struct {
+	flows []*model.TCPFlow
+}
+
+func (x *mockEmitter) Emit(ctx *types.Context, flow *model.TCPFlow) error {
+	x.flows = append(x.flows, flow)
+	return nil
+}
+
+func (x *mockEmitter) Close() error {
+	return nil
+}
+
+type mockDevice struct {
+	wroteData [][]byte
+}
+
+func (x *mockDevice) ReadPacket() chan gopacket.Packet {
+	panic("must not be called")
+}
+
+func (x *mockDevice) WritePacket(pktData []byte) error {
+	x.wroteData = append(x.wroteData, pktData)
+	return nil
+}
+
+func (x *mockDevice) GetDeviceAddrs() ([]net.Addr, error) {
+	panic("must not be called")
 }
 
 func TestHandleSynPacket(t *testing.T) {
@@ -56,24 +85,13 @@ func TestHandleSynPacket(t *testing.T) {
 		return []gopacket.SerializableLayer{eth, ipv4, tcp}
 	})
 
-	var calledWritePacket int
-	handler := tcp.New()
-	var logOutput string
-	spouts := &interfaces.Spout{
-		Console: func(msg string) {
-			logOutput = msg
-		},
-		WritePacket: func(b []byte) {
-			calledWritePacket++
-		},
-		Slack:         func(ctx *types.Context, msg *slack.WebhookMessage) {},
-		SavePcapData:  func(p []gopacket.Packet) {},
-		InsertTcpData: func(ctx *types.Context, data *model.SchemaTcpData) {},
-	}
+	emitter := &mockEmitter{}
+	device := &mockDevice{}
+	handler := tcp.New(device, tcp.WithEmitters(interfaces.Emitters{emitter}))
 
-	require.NoError(t, handler.Handle(ctx, synPkt, spouts))
+	require.NoError(t, handler.Handle(ctx, synPkt))
 
-	assert.Equal(t, 1, calledWritePacket)
+	assert.Len(t, device.wroteData, 1)
 
 	ackPkt := layersToPacket(t, func() []gopacket.SerializableLayer {
 		eth := &layers.Ethernet{
@@ -102,7 +120,7 @@ func TestHandleSynPacket(t *testing.T) {
 		return []gopacket.SerializableLayer{eth, ipv4, tcp}
 	})
 
-	require.NoError(t, handler.Handle(ctx, ackPkt, spouts))
+	require.NoError(t, handler.Handle(ctx, ackPkt))
 	payload1 := []byte("not ")
 	payload2 := []byte("sane")
 
@@ -129,7 +147,7 @@ func TestHandleSynPacket(t *testing.T) {
 		require.NoError(t, tcp.SetNetworkLayerForChecksum(ipv4))
 		payload := gopacket.Payload(payload1)
 		return []gopacket.SerializableLayer{eth, ipv4, tcp, payload}
-	}), spouts))
+	})))
 
 	require.NoError(t, handler.Handle(ctx, layersToPacket(t, func() []gopacket.SerializableLayer {
 		eth := &layers.Ethernet{
@@ -154,13 +172,13 @@ func TestHandleSynPacket(t *testing.T) {
 		require.NoError(t, tcp.SetNetworkLayerForChecksum(ipv4))
 		payload := gopacket.Payload(payload2)
 		return []gopacket.SerializableLayer{eth, ipv4, tcp, payload}
-	}), spouts))
+	})))
 
-	assert.Empty(t, logOutput)
+	assert.Empty(t, emitter.flows)
 	for i := 0; i < 5; i++ {
-		require.NoError(t, handler.Tick(ctx, spouts))
+		require.NoError(t, handler.Tick(ctx))
 	}
-	assert.NotEmpty(t, logOutput)
+	assert.NotEmpty(t, emitter.flows)
 }
 
 func TestExcludePort(t *testing.T) {
@@ -215,15 +233,13 @@ func TestExcludePort(t *testing.T) {
 		return []gopacket.SerializableLayer{eth, ipv4, tcp}
 	})
 
-	handler := tcp.New(tcp.WithExcludePorts([]int{5555}))
-	spout := interfaces.NewSpout(nil)
-	var called int
-	spout.WritePacket = func(b []byte) { called++ }
+	device := &mockDevice{}
+	handler := tcp.New(device, tcp.WithExcludePorts([]int{5555}))
 
 	ctx := types.NewContext()
-	handler.Handle(ctx, pkt1, spout)
-	assert.Equal(t, 0, called)
+	handler.Handle(ctx, pkt1)
+	assert.Equal(t, 0, len(device.wroteData))
 
-	handler.Handle(ctx, pkt2, spout)
-	assert.Equal(t, 1, called)
+	handler.Handle(ctx, pkt2)
+	assert.Equal(t, 1, len(device.wroteData))
 }
