@@ -15,14 +15,14 @@ type Emitter interface {
 
 type Emitters []Emitter
 
-func (x Emitters) Emit(ctx *types.Context, flow *model.TCPFlow) error {
+func (x Emitters) Emit(ctx *types.Context, flow *model.TCPFlow) (errors []error) {
 	for _, emitter := range x {
 		if err := emitter.Emit(ctx, flow); err != nil {
-			return err
+			errors = append(errors, err)
 		}
 	}
 
-	return nil
+	return
 }
 
 type Handler interface {

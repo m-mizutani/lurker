@@ -1,15 +1,16 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/m-mizutani/goerr"
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
 	"github.com/m-mizutani/lurker/pkg/emitters/bq"
+	"github.com/m-mizutani/lurker/pkg/emitters/firehose"
 	"github.com/m-mizutani/lurker/pkg/emitters/slack"
 	"github.com/m-mizutani/lurker/pkg/handlers/arp"
 	"github.com/m-mizutani/lurker/pkg/handlers/tcp"
 	"github.com/m-mizutani/lurker/pkg/infra/network"
+	"github.com/m-mizutani/lurker/pkg/utils"
+	"github.com/m-mizutani/zlog"
 
 	"github.com/urfave/cli/v2"
 )
@@ -19,14 +20,21 @@ type Config struct {
 	ListenAddrs   cli.StringSlice
 	ExcludePorts  cli.IntSlice
 	ArpSpoof      bool
-
-	SlackWebhookURL   string
-	BigQueryProjectID string
-	BigQueryDataset   string
 }
 
 func Run(argv []string) error {
-	var cfg Config
+	var (
+		cfg Config
+
+		slackWebhookURL    string
+		bigQueryProjectID  string
+		bigQueryDataset    string
+		firehoseRegion     string
+		firehoseStreamName string
+
+		logLevel string
+	)
+
 	app := &cli.App{
 		Name:  "lurker",
 		Usage: "Silent network security sensor",
@@ -64,21 +72,46 @@ func Run(argv []string) error {
 			&cli.StringFlag{
 				Name:        "slack-webhook-url",
 				Usage:       "Slack incoming webhook URL",
-				Destination: &cfg.SlackWebhookURL,
+				Destination: &slackWebhookURL,
 				EnvVars:     []string{"LURKER_SLACK_WEBHOOK"},
 			},
 			&cli.StringFlag{
 				Name:        "bigquery-project-id",
 				Usage:       "BigQuery Project ID",
-				Destination: &cfg.BigQueryProjectID,
+				Destination: &bigQueryProjectID,
 				EnvVars:     []string{"LURKER_BIGQUERY_PROJECT_ID"},
 			},
 			&cli.StringFlag{
 				Name:        "bigquery-dataset",
 				Usage:       "BigQuery Dataset name",
-				Destination: &cfg.BigQueryDataset,
+				Destination: &bigQueryDataset,
 				EnvVars:     []string{"LURKER_BIGQUERY_DATASET"},
 			},
+			&cli.StringFlag{
+				Name:        "firehose-region",
+				Usage:       "Amazon Kinesis Data Firehose region",
+				Destination: &firehoseRegion,
+				EnvVars:     []string{"LURKER_FIREHOSE_REGION"},
+			},
+			&cli.StringFlag{
+				Name:        "firehose-stream-name",
+				Usage:       "Amazon Kinesis Data Firehose stream name",
+				Destination: &firehoseStreamName,
+				EnvVars:     []string{"LURKER_FIREHOSE_STREAM_NAME"},
+			},
+
+			// utilities
+			&cli.StringFlag{
+				Name:        "log-level",
+				Aliases:     []string{"l"},
+				Destination: &logLevel,
+				EnvVars:     []string{"LURKER_LOG_LEVEL"},
+				Value:       "info",
+			},
+		},
+		Before: func(ctx *cli.Context) error {
+			utils.InitLogger(zlog.WithLogLevel(logLevel))
+			return nil
 		},
 		Action: func(ctx *cli.Context) error {
 			dev, err := network.New(cfg.NetworkDevice)
@@ -101,20 +134,31 @@ func Run(argv []string) error {
 
 			{
 				var emitters interfaces.Emitters
-				if cfg.BigQueryProjectID != "" || cfg.BigQueryDataset != "" {
-					if cfg.BigQueryProjectID == "" || cfg.BigQueryDataset == "" {
+				if bigQueryProjectID != "" || bigQueryDataset != "" {
+					if bigQueryProjectID == "" || bigQueryDataset == "" {
 						return goerr.New("both of bigquery-project-id and bigquery-dataset are required")
 					}
 
-					emitter, err := bq.New(cfg.BigQueryProjectID, cfg.BigQueryDataset)
+					emitter, err := bq.New(bigQueryProjectID, bigQueryDataset)
 					if err != nil {
 						return err
 					}
 					emitters = append(emitters, emitter)
 				}
 
-				if cfg.SlackWebhookURL != "" {
-					emitters = append(emitters, slack.New(cfg.SlackWebhookURL))
+				if firehoseRegion != "" || firehoseStreamName != "" {
+					if firehoseRegion == "" {
+						return goerr.New("firehose-region option required")
+					}
+					if firehoseStreamName == "" {
+						return goerr.New("firehose-stream-name option required")
+					}
+
+					emitters = append(emitters, firehose.New(firehoseRegion, firehoseStreamName))
+				}
+
+				if slackWebhookURL != "" {
+					emitters = append(emitters, slack.New(slackWebhookURL))
 				}
 
 				tcpOptions = append(tcpOptions, tcp.WithEmitters(emitters))
@@ -145,7 +189,8 @@ func Run(argv []string) error {
 	}
 
 	if err := app.Run(argv); err != nil {
-		fmt.Printf("Error: %+v\n", err)
+		utils.Logger.Error(err.Error())
+		utils.Logger.Err(err).Debug("Error details")
 		return err
 	}
 

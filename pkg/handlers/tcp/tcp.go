@@ -12,6 +12,7 @@ import (
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
 	"github.com/m-mizutani/lurker/pkg/domain/model"
 	"github.com/m-mizutani/lurker/pkg/domain/types"
+	"github.com/m-mizutani/lurker/pkg/utils"
 	"github.com/m-mizutani/ttlcache"
 )
 
@@ -40,8 +41,10 @@ func New(dev interfaces.Device, options ...Option) *tcpHandler {
 
 	_ = hdlr.flows.SetHook(func(flow *model.TCPFlow) uint64 {
 		ctx := types.NewContext()
-		if err := hdlr.emitters.Emit(ctx, flow); err != nil {
-
+		if errs := hdlr.emitters.Emit(ctx, flow); errs != nil {
+			for _, err := range errs {
+				utils.Logger.Err(err).Error("emit error")
+			}
 		}
 
 		return 0
