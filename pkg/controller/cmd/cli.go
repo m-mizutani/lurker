@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/m-mizutani/goerr"
 	"github.com/m-mizutani/lurker/pkg/domain/interfaces"
 	"github.com/m-mizutani/lurker/pkg/emitters/bq"
+	"github.com/m-mizutani/lurker/pkg/emitters/console"
 	"github.com/m-mizutani/lurker/pkg/emitters/firehose"
 	"github.com/m-mizutani/lurker/pkg/emitters/slack"
 	"github.com/m-mizutani/lurker/pkg/handlers/arp"
@@ -134,6 +137,8 @@ func Run(argv []string) error {
 
 			{
 				var emitters interfaces.Emitters
+				emitters = append(emitters, console.New(os.Stdout))
+
 				if bigQueryProjectID != "" || bigQueryDataset != "" {
 					if bigQueryProjectID == "" || bigQueryDataset == "" {
 						return goerr.New("both of bigquery-project-id and bigquery-dataset are required")

@@ -54,7 +54,7 @@ func (x *Emitter) Emit(ctx *types.Context, flow *model.TCPFlow) error {
 	return nil
 }
 
-func Close() error {
+func (x *Emitter) Close() error {
 	// Do not close writer to prevent unexpected closing output. e.g. stdout
 	return nil
 }
